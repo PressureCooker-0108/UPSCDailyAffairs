@@ -11,7 +11,7 @@ from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
 from upsc_filter import score_relevance, score_novelty, record_story
-from upsc_analyzer import generate_exam_playbook
+from upsc_analyzer import generate_exam_playbook, GEMINI_RELEVANCE_THRESHOLD
 from models.database import (
     save_articles, save_stories,
     init_db, SessionLocal
@@ -113,7 +113,6 @@ def run_pipeline() -> None:
                 stories = summarize_stories(filtered_stories)
 
             # 9. Gemini-powered exam intelligence (for high-priority stories)
-            GEMINI_RELEVANCE_THRESHOLD = 0.72
             for story in stories:
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
