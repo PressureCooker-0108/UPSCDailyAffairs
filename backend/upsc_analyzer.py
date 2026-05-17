@@ -40,7 +40,7 @@ _GEMINI_BACKOFF_BASE = 6.0  # starting backoff in seconds
 _GEMINI_MAX_RETRIES = 3  # max retries per model on 429
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1/models"
 _GEMINI_TEMPERATURE = 0.2
-_GEMINI_MAX_TOKENS = 500
+_GEMINI_MAX_TOKENS = 1024
 _GEMINI_TIMEOUT_SECONDS = 30.0
 
 # Threshold — only process stories with relevance >= this
@@ -153,35 +153,56 @@ Why it matters: {why_it_matters}
 def _parse_gemini_response(response_text: str) -> dict[str, Any] | None:
     """Parse the Gemini API response, extracting the structured JSON.
 
-    Handles markdown code fences and partial JSON extraction.
+    With response_mime_type="application/json" the model should return
+    raw JSON. This function handles that, and also falls back to
+    extracting JSON from markdown code fences for older models.
     """
     text = response_text.strip()
 
-    # Try to extract JSON from markdown code fences
+    # Fallback 1: Extract JSON from ```json ... ``` fences
     if "```json" in text:
         json_start = text.index("```json") + 7
-        json_end = text.index("```", json_start) if "```" in text[json_start:] else len(text)
-        text = text[json_start:json_end].strip()
+        rest = text[json_start:]
+        json_end = rest.index("```") if "```" in rest else len(rest)
+        text = rest[:json_end].strip()
     elif "```" in text:
-        # Try generic code fence
         json_start = text.index("```") + 3
-        json_end = text.index("```", json_start) if "```" in text[json_start:] else len(text)
-        text = text[json_start:json_end].strip()
+        rest = text[json_start:]
+        json_end = rest.index("```") if "```" in rest else len(rest)
+        text = rest[:json_end].strip()
+
+    # Fallback 2: Try to find the first { ... } JSON block
+    if not text.startswith("{"):
+        brace_start = text.find("{")
+        if brace_start != -1:
+            text = text[brace_start:]
+        # Find matching closing brace
+        depth = 0
+        for i, ch in enumerate(text):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    text = text[:i+1]
+                    break
 
     # Parse JSON
     try:
         result = json.loads(text)
-        # Validate required fields
+        # Validate required fields, fill missing with defaults
         required_fields = ["prelims_angle", "mains_angle", "probable_question",
                            "static_connect", "key_terms", "one_line_takeaway"]
         for field in required_fields:
-            if field not in result:
-                result[field] = result.get(field, "")
+            if field not in result or result[field] is None:
+                result[field] = ""
+        if "key_terms" in result and not isinstance(result["key_terms"], list):
+            result["key_terms"] = []
 
         return result
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse Gemini response as JSON: {e}")
-        logger.debug(f"Raw response: {response_text[:500]}")
+        logger.error(f"[GEMINI] Failed to parse response as JSON: {e}")
+        logger.debug(f"[GEMINI] Raw response (first 500 chars): {response_text[:500]}")
         return None
 
 
@@ -224,6 +245,11 @@ def generate_exam_playbook(
     subtopics = subtopics or []
 
     try:
+        # Sanitize user content to prevent unescaped characters breaking JSON output
+        headline = headline.replace("\"", "'").replace("\n", " ").replace("\r", " ").strip()
+        summary = summary.replace("\"", "'").replace("\n", " ").replace("\r", " ").strip()
+        why_it_matters = why_it_matters.replace("\"", "'").replace("\n", " ").replace("\r", " ").strip()
+
         prompt = _build_upsc_prompt(
             gs_paper=gs_paper,
             subtopics=subtopics,
@@ -240,6 +266,7 @@ def generate_exam_playbook(
             "generationConfig": {
                 "temperature": _GEMINI_TEMPERATURE,
                 "maxOutputTokens": _GEMINI_MAX_TOKENS,
+                "response_mime_type": "application/json",
             },
         }
 
