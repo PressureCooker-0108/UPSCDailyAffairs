@@ -14,6 +14,7 @@ from upsc_filter import score_relevance, score_novelty, record_story
 from upsc_analyzer import generate_exam_playbook, GEMINI_RELEVANCE_THRESHOLD
 from models.database import (
     save_articles, save_stories,
+    get_existing_playbooks,
     init_db, SessionLocal
 )
 
@@ -114,9 +115,18 @@ def run_pipeline() -> None:
 
             # 9. Gemini-powered exam intelligence (for high-priority stories)
             # Rate-limited to stay within free tier (60 req/min for gemini-2.0-flash)
+            # First, load any existing playbooks so we can skip re-generation
+            existing_playbooks = get_existing_playbooks()
             for story in stories:
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
+                    # Check if this story already has a playbook in the DB
+                    existing = existing_playbooks.get(story["title"])
+                    if existing is not None:
+                        story["exam_playbook"] = existing
+                        logger.info(f"[GEMINI] Reused existing playbook for: {story['title'][:60]}")
+                        continue
+
                     time.sleep(1.5)  # ~40 req/min, well within free quota
                     try:
                         playbook = generate_exam_playbook(

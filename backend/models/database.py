@@ -408,6 +408,33 @@ def story_count() -> int:
         db.close()
 
 
+def get_existing_playbooks() -> dict[str, dict]:
+    """Get existing exam playbooks keyed by story title.
+
+    Used by the pipeline to avoid regenerating playbooks for stories
+    that already have them — saving API calls and money on re-deploys.
+    """
+    from .models import Summary
+    from loguru import logger
+    db = SessionLocal()
+    try:
+        stories = db.query(Summary).filter(Summary.exam_playbook.isnot(None)).all()
+        playbooks: dict[str, dict] = {}
+        for s in stories:
+            if s.exam_playbook:
+                try:
+                    playbook = json.loads(s.exam_playbook)
+                    if playbook and isinstance(playbook, dict):
+                        playbooks[s.title] = playbook
+                except (json.JSONDecodeError, TypeError):
+                    pass
+        if playbooks:
+            logger.info(f"Loaded {len(playbooks)} existing playbooks from DB — will skip re-generation")
+        return playbooks
+    finally:
+        db.close()
+
+
 def last_updated() -> str | None:
     from .models import Summary
     db = SessionLocal()
