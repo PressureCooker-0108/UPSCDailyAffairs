@@ -87,6 +87,19 @@ def _resolve_imports() -> bool:
 #  State
 # ──────────────────────────────────────────────
 
+# ──────────────────────────────────────────────
+#  Config helpers
+# ──────────────────────────────────────────────
+
+def _is_scheduled_mode() -> bool:
+    """Check if ML_RETRAIN_MODE is set to 'scheduled' in config."""
+    try:
+        from config import ML_RETRAIN_MODE
+        return ML_RETRAIN_MODE == "scheduled"
+    except (ImportError, AttributeError):
+        return False  # Safe default: continuous mode
+
+
 _RETRAIN_STATE: dict[str, Any] = {
     "last_retrain_at": None,            # ISO timestamp
     "total_retrains": 0,
@@ -165,15 +178,24 @@ def capture_feedback(
 # ──────────────────────────────────────────────
 
 def _compute_retrain_interval() -> float:
-    """Compute optimal retrain interval based on model maturity.
+    """Compute optimal retrain interval based on model maturity and mode.
 
     Collection (feedback capture) happens every pipeline run — always.
     Retraining (compute-heavy) happens on this schedule:
 
-    - < 100 samples: every 6 hours (every pipeline run — fast iteration)
-    - 100–500 samples: every 24 hours (daily)
-    - 500+ samples: every 144 hours (every 6 days — as you requested)
+    Mode="continuous" (default):
+      - < 100 samples: every 6 hours (every pipeline run — fast iteration)
+      - 100–500 samples: every 24 hours (daily)
+      - 500+ samples: every 144 hours (every 6 days)
+
+    Mode="scheduled":
+      - Fixed 144 hours (6 days) regardless of sample count
+      - check_should_retrain() also requires 72h (3 days) of collection
+        between retrains — see 'MIN_FEEDBACK_HOURS' there
     """
+    if _is_scheduled_mode():
+        return 144.0  # Fixed 6-day retrain cycle
+
     total_samples = _RETRAIN_STATE["new_samples_since_last_retrain"]
     if total_samples < 100:
         return 6.0    # Every pipeline run — fast iteration while data is scarce
@@ -200,7 +222,10 @@ def check_should_retrain(
         logger.debug("[ML Auto-Retrain] Already retraining — skipping")
         return False
 
-    # Auto-compute interval based on model maturity
+    # "scheduled" mode enforces a fixed 3d/6d rhythm
+    _scheduled_mode = _is_scheduled_mode()
+
+    # Auto-compute interval based on model maturity (or fixed in scheduled mode)
     if min_interval_hours is None:
         min_interval_hours = _compute_retrain_interval()
 
@@ -228,10 +253,25 @@ def check_should_retrain(
     except Exception:
         pass
 
+    # In scheduled mode, also enforce a minimum 3-day (72h) collection window
+    if _scheduled_mode and _RETRAIN_STATE["last_retrain_at"]:
+        last = datetime.fromisoformat(_RETRAIN_STATE["last_retrain_at"])
+        elapsed = datetime.now(timezone.utc) - last
+        hours_since = elapsed.total_seconds() / 3600
+        if hours_since < 72.0:
+            logger.debug(
+                f"[ML Auto-Retrain] Scheduled mode: only {hours_since:.1f}h since "
+                f"last retrain (need 72h) — collecting more feedback"
+            )
+            return False
+
     if min_new_samples is None:
         # Scale min_new_samples with model maturity
         total = _RETRAIN_STATE["new_samples_since_last_retrain"]
-        min_new_samples = 5 if total < 100 else 15 if total < 500 else 30
+        if _scheduled_mode:
+            min_new_samples = 30  # Fixed minimum for 3d/6d schedule
+        else:
+            min_new_samples = 5 if total < 100 else 15 if total < 500 else 30
 
     if new_data >= min_new_samples:
         logger.info(

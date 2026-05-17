@@ -236,6 +236,19 @@ def detect_content_type(text: str) -> tuple[str, float]:
 
 
 # ──────────────────────────────────────────────
+# ML Auto-Retrain Mode
+# ──────────────────────────────────────────────
+# Controls how often the ML model auto-retrains:
+#   "continuous" — retrains on every pipeline run (early stage / scarce data)
+#   "scheduled"  — fixed schedule:
+#                   • feedback collection happens every pipeline run (always)
+#                   • retrain triggers every ~6 days, requiring ~3 days of data
+#                   • ignores sample-count-based progressive intervals
+# ──────────────────────────────────────────────
+
+ML_RETRAIN_MODE = "continuous"  # "continuous" | "scheduled"
+
+# ──────────────────────────────────────────────
 # Pipeline Constants
 # ──────────────────────────────────────────────
 MAX_STORIES = 60
