@@ -19,6 +19,7 @@ from upsc_analyzer import (
     prepare_ai_run,
     probe_openrouter,
 )
+from ml_classifier import ml_review_verdict, is_model_loaded as ml_model_loaded
 from models.database import (
     save_articles, save_stories,
     get_existing_playbooks,
@@ -35,6 +36,8 @@ _pipeline_status: dict = {
     "total_stories_processed": 0,
     "total_ai_success": 0,
     "total_ai_failures": 0,
+    "total_ml_bypassed": 0,
+    "total_ml_uncertain": 0,
 }
 
 
@@ -68,6 +71,8 @@ def run_pipeline() -> None:
     ai_eligible = 0
     ai_skipped_cached = 0
     ai_skipped_budget = 0
+    ml_bypassed = 0  # Stories decided by ML, no AI review needed
+    ml_uncertain = 0  # Stories where ML was unsure, fell back to AI review
 
     ai_status = prepare_ai_run()
     logger.info(
@@ -169,31 +174,40 @@ def run_pipeline() -> None:
                 # 8. Summarize (only UPSC-relevant stories)
                 stories = summarize_stories(filtered_stories)
 
-            # 9. AI review verdicts + exam playbooks
-            # Two-phase AI processing:
-            #   Phase 1 — Lightweight review verdict (PASS/FLAG/REJECT)
-            #   Phase 2 — Full exam playbook (only for PASS/FLAG verdicts)
+            # 9. ML review + AI review verdicts + exam playbooks
+            # Three-phase processing:
+            #   Phase 0 — ML classifier (free, instant) 
+            #   Phase 1 — AI review verdict (PASS/FLAG/REJECT)
+            #   Phase 2 — Full exam playbook (only for PASS/FLAG)
             #
-            # Review runs FIRST as a gatekeeper: if the AI rejects a story,
-            # we skip the expensive playbook call entirely, saving budget.
+            # ML runs FIRST as a fast gatekeeper. If the ML is confident:
+            #   - PASS with high confidence → skip AI review, go straight to playbook
+            #   - REJECT with high confidence → skip story entirely
+            # If ML is uncertain (FLAG or low confidence) → fall back to AI review.
+            #
+            # This saves API budget: ML predictions are free, AI calls cost budget.
+            ml_available = ml_model_loaded()
+            if ml_available:
+                logger.info("[ML] ML classifier loaded — using as fast pre-filter")
+            else:
+                logger.info("[ML] ML classifier not loaded — all stories go to AI review")
+
             existing_playbooks = get_existing_playbooks()
             for story in stories:
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= AI_RELEVANCE_THRESHOLD:
                     ai_eligible += 1
 
-                    # ── Phase 1: AI Review Verdict ──
-                    review = None
                     existing = existing_playbooks.get(story["title"])
                     if existing is not None:
-                        # Already has a playbook — skip review + re-gen
                         story["exam_playbook"] = existing
                         story["ai_review"] = {"verdict": "PASS", "reasoning": "Cached from previous run"}
                         ai_skipped_cached += 1
                         logger.info(f"[AI] Reused existing playbook for: {story['title'][:60]}")
                         continue
 
-                    # Get full text for review from the cluster
+                    # ── Phase 0: ML Review (free, instant) ──
+                    # Get text for ML classifier
                     cluster_text = story.get("cluster", [])
                     full_text = ""
                     if cluster_text:
@@ -206,28 +220,85 @@ def run_pipeline() -> None:
                     if not full_text:
                         full_text = story.get("summary", story.get("title", ""))
 
-                    try:
-                        review = generate_review_verdict(
-                            headline=story["title"],
-                            full_text=full_text,
-                            gs_paper=story.get("gs_paper", ""),
-                            subtopics=story.get("subtopics", []),
-                            why_it_matters=story.get("why_it_matters", ""),
-                        )
-                    except Exception as e:
-                        logger.warning(f"[AI Review] Failed for '{story['title'][:60]}': {e}")
+                    ml_result = None
+                    if ml_available:
+                        try:
+                            ml_result = ml_review_verdict(
+                                text=full_text,
+                                title=story.get("title", ""),
+                            )
+                        except Exception as e:
+                            logger.warning(f"[ML] Review failed for '{story['title'][:60]}': {e}")
+                            ml_result = None
+
+                    # If ML is confident, use its verdict and skip AI review
+                    if ml_result and ml_result.get("model_loaded"):
+                        ml_verdict = ml_result["verdict"]
+                        ml_confidence = ml_result["confidence"]
+
+                        if ml_verdict == "PASS" and ml_confidence >= 0.70:
+                            # High-confidence PASS — skip AI review, go to playbook
+                            ml_bypassed += 1
+                            story["ai_review"] = {
+                                "verdict": "PASS",
+                                "confidence": ml_confidence,
+                                "reasoning": "ML classifier — high confidence PASS",
+                                "ml_result": ml_result,
+                            }
+                            logger.info(
+                                f"[ML] PASS (conf={ml_confidence:.2f}) for "
+                                f"'{story['title'][:60]}' — skipping AI review"
+                            )
+                            # Fall through to Phase 2 (playbook) below
+                            review = story["ai_review"]
+                        elif ml_verdict == "REJECT" and ml_confidence >= 0.70:
+                            # High-confidence REJECT — skip entirely
+                            ml_bypassed += 1
+                            story["ai_review"] = {
+                                "verdict": "REJECT",
+                                "confidence": ml_confidence,
+                                "reasoning": "ML classifier — high confidence REJECT",
+                                "ml_result": ml_result,
+                            }
+                            story["exam_playbook"] = None
+                            logger.info(
+                                f"[ML] REJECT (conf={ml_confidence:.2f}) for "
+                                f"'{story['title'][:60]}' — skipping story"
+                            )
+                            continue
+                        else:
+                            # ML uncertain (FLAG or low confidence) — fall back to AI
+                            ml_uncertain += 1
+                            logger.info(
+                                f"[ML] {ml_verdict} (conf={ml_confidence:.2f}) for "
+                                f"'{story['title'][:60]}' — uncertain, falling back to AI"
+                            )
+
+                    # ── Phase 1: AI Review Verdict (only if ML didn't decide) ──
+                    if not ml_result or ml_result.get("verdict") != "PASS" or ml_result.get("confidence", 0) < 0.70:
                         review = None
+                        try:
+                            review = generate_review_verdict(
+                                headline=story["title"],
+                                full_text=full_text,
+                                gs_paper=story.get("gs_paper", ""),
+                                subtopics=story.get("subtopics", []),
+                                why_it_matters=story.get("why_it_matters", ""),
+                            )
+                        except Exception as e:
+                            logger.warning(f"[AI Review] Failed for '{story['title'][:60]}': {e}")
+                            review = None
 
-                    story["ai_review"] = review
+                        story["ai_review"] = review
 
-                    # If review verdict is REJECT, skip playbook entirely
-                    if review and review.get("verdict") == "REJECT":
-                        story["exam_playbook"] = None
-                        logger.info(
-                            f"[AI Review] REJECTED '{story['title'][:60]}' — skipping playbook "
-                            f"(reason: {review.get('reasoning', 'N/A')[:80]})"
-                        )
-                        continue
+                        # If review verdict is REJECT, skip playbook entirely
+                        if review and review.get("verdict") == "REJECT":
+                            story["exam_playbook"] = None
+                            logger.info(
+                                f"[AI Review] REJECTED '{story['title'][:60]}' — skipping playbook "
+                                f"(reason: {review.get('reasoning', 'N/A')[:80]})"
+                            )
+                            continue
 
                     # ── Phase 2: Exam Playbook (only for PASS/FLAG) ──
                     runtime_status = get_ai_runtime_status()
@@ -306,12 +377,16 @@ def run_pipeline() -> None:
         _pipeline_status["total_stories_processed"] = len(filtered_stories)
         _pipeline_status["total_ai_success"] += ai_success
         _pipeline_status["total_ai_failures"] += ai_failures
+        _pipeline_status["total_ml_bypassed"] += ml_bypassed
+        _pipeline_status["total_ml_uncertain"] += ml_uncertain
         logger.info(
             "[AI] Run summary "
             f"(eligible={ai_eligible}, cached={ai_skipped_cached}, "
             f"budget_skipped={ai_skipped_budget}, success={ai_success}, "
             f"failures={ai_failures}, used={get_ai_runtime_status()['ai_calls_used']})"
         )
+        ml_status = "not loaded" if not ml_available else f"{ml_bypassed} bypassed, {ml_uncertain} uncertain"
+        logger.info(f"[ML] Run summary: {ml_status}")
         logger.info(f"=== Pipeline complete in {elapsed:.1f}s ===")
 
     except Exception as e:
