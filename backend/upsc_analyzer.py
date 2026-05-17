@@ -17,6 +17,8 @@ Gemini NEVER:
 Uses:
   - httpx (REST API, NOT Google SDK)
   - gemini-2.0-flash model (primary)
+  - gemini-2.0-flash-lite (fallback, same quota pool)
+  - gemini-1.5-flash (second fallback, separate quota pool)
   - temperature = 0.2, maxOutputTokens = 1024
 """
 
@@ -32,7 +34,7 @@ import httpx
 
 # Gemini API configuration
 _GEMINI_MODEL = "gemini-2.0-flash"
-_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite"]
+_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash"]
 _GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
 # Exponential backoff for 429 retries: 6s, 12s, 24s (3 retries max per model)
 _GEMINI_BACKOFF_BASE = 6.0  # starting backoff in seconds
