@@ -17,6 +17,7 @@ It NEVER:
 
 import json
 import os
+import threading
 import time
 from typing import Any
 
@@ -36,6 +37,8 @@ OPENROUTER_DEFAULT_FREE_TIER_DAILY_CAP = 50
 OPENROUTER_DEFAULT_PAID_FREE_MODEL_DAILY_CAP = 1000
 OPENROUTER_RETRYABLE_STATUS_CODES = {429, 502, 503, 504}
 AI_RELEVANCE_THRESHOLD = 0.50
+
+_ai_state_lock = threading.RLock()  # RLock allows nested acquisition (mark_budget → set_last_result)
 
 _ai_state: dict[str, Any] = {
     "last_request_at": 0.0,
@@ -138,12 +141,13 @@ def _load_api_keys() -> list[str]:
 
 def _get_next_api_key() -> str | None:
     """Return the next API key in round-robin order."""
-    keys = _ai_state.get("api_keys", [])
-    if not keys:
-        return None
-    idx = _ai_state.get("key_index", 0) % len(keys)
-    _ai_state["key_index"] = idx + 1
-    return keys[idx]
+    with _ai_state_lock:
+        keys = _ai_state.get("api_keys", [])
+        if not keys:
+            return None
+        idx = _ai_state.get("key_index", 0) % len(keys)
+        _ai_state["key_index"] = idx + 1
+        return keys[idx]
 
 
 def _build_headers(api_key: str) -> dict[str, str]:
@@ -161,23 +165,26 @@ def _build_headers(api_key: str) -> dict[str, str]:
 
 
 def _set_last_result(result: str) -> None:
-    _ai_state["last_result"] = result
+    with _ai_state_lock:
+        _ai_state["last_result"] = result
 
 
 def _mark_budget_exhausted(result: str) -> None:
-    _ai_state["budget_exhausted"] = True
-    _set_last_result(result)
+    with _ai_state_lock:
+        _ai_state["budget_exhausted"] = True
+        _set_last_result(result)
 
 
 def _should_skip_for_budget() -> bool:
-    run_cap = _ai_state.get("run_cap")
-    if _ai_state.get("budget_exhausted"):
-        _set_last_result("skipped_budget")
-        return True
-    if isinstance(run_cap, int) and _ai_state.get("ai_calls_used", 0) >= run_cap:
-        _mark_budget_exhausted("skipped_budget")
-        return True
-    return False
+    with _ai_state_lock:
+        if _ai_state.get("budget_exhausted"):
+            _set_last_result("skipped_budget")
+            return True
+        run_cap = _ai_state.get("run_cap")
+        if isinstance(run_cap, int) and _ai_state.get("ai_calls_used", 0) >= run_cap:
+            _mark_budget_exhausted("skipped_budget")
+            return True
+        return False
 
 
 def _wait_for_request_slot() -> None:
@@ -186,14 +193,16 @@ def _wait_for_request_slot() -> None:
         return
 
     now = time.monotonic()
-    last_request_at = float(_ai_state.get("last_request_at") or 0.0)
+    with _ai_state_lock:
+        last_request_at = float(_ai_state.get("last_request_at") or 0.0)
     elapsed = now - last_request_at
     if last_request_at > 0 and elapsed < min_interval:
         sleep_for = min_interval - elapsed
         logger.info(f"[AI] Pacing OpenRouter requests; sleeping {sleep_for:.2f}s")
         time.sleep(sleep_for)
 
-    _ai_state["last_request_at"] = time.monotonic()
+    with _ai_state_lock:
+        _ai_state["last_request_at"] = time.monotonic()
 
 
 def _parse_retry_after(response: httpx.Response) -> float | None:
@@ -372,21 +381,22 @@ def fetch_openrouter_key_info(api_key: str | None = None) -> dict[str, Any] | No
 
 def _reset_ai_state() -> None:
     """Reset run-level AI state before each pipeline execution."""
-    _ai_state.update({
-        "last_request_at": 0.0,
-        "budget_exhausted": False,
-        "run_cap": None,
-        "daily_cap_assumed": None,
-        "ai_calls_used": 0,
-        "last_result": "not_started",
-        "key_info": None,
-        "is_free_tier": None,
-        "api_keys": [],
-        "key_index": 0,
-        "key_usage": {},
-        "review_calls_used": 0,
-        "review_failures": 0,
-    })
+    with _ai_state_lock:
+        _ai_state.update({
+            "last_request_at": 0.0,
+            "budget_exhausted": False,
+            "run_cap": None,
+            "daily_cap_assumed": None,
+            "ai_calls_used": 0,
+            "last_result": "not_started",
+            "key_info": None,
+            "is_free_tier": None,
+            "api_keys": [],
+            "key_index": 0,
+            "key_usage": {},
+            "review_calls_used": 0,
+            "review_failures": 0,
+        })
 
 
 def prepare_ai_run() -> dict[str, Any]:
@@ -436,23 +446,24 @@ def prepare_ai_run() -> dict[str, Any]:
 
 def get_ai_runtime_status() -> dict[str, Any]:
     """Expose current AI runtime state for scheduler and diagnostics."""
-    return {
-        "model": OPENROUTER_MODEL,
-        "base_url": _base_url(),
-        "budget_exhausted": bool(_ai_state.get("budget_exhausted")),
-        "run_cap": _ai_state.get("run_cap"),
-        "daily_cap_assumed": _ai_state.get("daily_cap_assumed"),
-        "ai_calls_used": int(_ai_state.get("ai_calls_used", 0)),
-        "last_result": _ai_state.get("last_result"),
-        "is_free_tier": _ai_state.get("is_free_tier"),
-        "has_key_info": _ai_state.get("key_info") is not None,
-        "key_info": _ai_state.get("key_info"),
-        "key_count": len(_ai_state.get("api_keys", [])),
-        "key_index": int(_ai_state.get("key_index", 0)),
-        "key_usage": dict(_ai_state.get("key_usage", {})),
-        "review_calls_used": int(_ai_state.get("review_calls_used", 0)),
-        "review_failures": int(_ai_state.get("review_failures", 0)),
-    }
+    with _ai_state_lock:
+        return {
+            "model": OPENROUTER_MODEL,
+            "base_url": _base_url(),
+            "budget_exhausted": bool(_ai_state.get("budget_exhausted")),
+            "run_cap": _ai_state.get("run_cap"),
+            "daily_cap_assumed": _ai_state.get("daily_cap_assumed"),
+            "ai_calls_used": int(_ai_state.get("ai_calls_used", 0)),
+            "last_result": _ai_state.get("last_result"),
+            "is_free_tier": _ai_state.get("is_free_tier"),
+            "has_key_info": _ai_state.get("key_info") is not None,
+            "key_info": _ai_state.get("key_info"),
+            "key_count": len(_ai_state.get("api_keys", [])),
+            "key_index": int(_ai_state.get("key_index", 0)),
+            "key_usage": dict(_ai_state.get("key_usage", {})),
+            "review_calls_used": int(_ai_state.get("review_calls_used", 0)),
+            "review_failures": int(_ai_state.get("review_failures", 0)),
+        }
 
 
 def probe_openrouter(api_key: str | None = None) -> dict[str, Any]:

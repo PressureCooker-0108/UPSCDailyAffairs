@@ -5,6 +5,7 @@ import json
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import FastAPI, Query, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
@@ -14,6 +15,8 @@ from loguru import logger as loguru_logger
 from models.database import (
     init_db, get_upsc_stories, last_updated
 )
+from fastapi.responses import FileResponse
+
 from scheduler import run_pipeline, start_scheduler
 from upsc_analyzer import get_ai_runtime_status, probe_openrouter
 
@@ -355,6 +358,120 @@ def db_status():
             db.close()
     except Exception as e:
         return {"error": str(e)}
+
+
+# ── Training Data Generation ──
+
+_TRAINING_DATA_RUNNING = False
+
+@app.post("/train-data/generate")
+def trigger_training_data_generation():
+    """Trigger batch AI review verdict generation for training data.
+
+    Fetches articles from all RSS sources, runs TF-IDF classification,
+    generates AI review verdicts via OpenRouter, and saves a JSONL
+    training data file.
+
+    This is a manual operation that can take 10-30 minutes depending
+    on how many articles need review. Results are saved to the server's
+    filesystem and can be downloaded via /train-data/latest.
+    """
+    global _TRAINING_DATA_RUNNING
+
+    if _TRAINING_DATA_RUNNING:
+        return {"status": "already_running", "message": "Training data generation is already in progress."}
+
+    remaining = _limiter.check("train_data", 3600)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "Rate limited",
+                "message": f"Can only generate training data once per hour. Try again in {remaining:.0f} seconds.",
+                "retry_after": remaining,
+            },
+        )
+
+    _TRAINING_DATA_RUNNING = True
+
+    def _run_training_generation():
+        global _TRAINING_DATA_RUNNING
+        try:
+            from generate_training_data import run_tfidf_pipeline, run_ai_reviews, save_training_data
+            from services.fetch_news import fetch_rss_feeds
+
+            # Step 1: Fetch
+            articles = fetch_rss_feeds()
+            logger.info(f"[Train-Data] Fetched {len(articles)} articles")
+
+            # Step 2: TF-IDF classification
+            enriched = run_tfidf_pipeline(articles)
+            logger.info(f"[Train-Data] Classified {len(enriched)} articles")
+
+            # Step 3: AI reviews (limit to 50 articles to stay within budget)
+            results = run_ai_reviews(enriched, max_articles=50)
+            logger.info(f"[Train-Data] Generated {sum(1 for r in results if r.get('ai_review'))} reviews")
+
+            # Step 4: Save
+            output_path = save_training_data(results, "/tmp/training_data.jsonl")
+            logger.info(f"[Train-Data] Saved to {output_path}")
+        except Exception as e:
+            logger.exception(f"[Train-Data] Failed: {e}")
+        finally:
+            _TRAINING_DATA_RUNNING = False
+
+    thread = threading.Thread(target=_run_training_generation, daemon=True)
+    thread.start()
+
+    return {
+        "status": "started",
+        "message": "Training data generation started in background. Check /train-data/status to track progress.",
+    }
+
+
+@app.get("/train-data/status")
+def training_data_status():
+    """Check the status of the training data generation job."""
+    latest_path = Path("/tmp/training_data.jsonl")
+    info = {
+        "is_running": _TRAINING_DATA_RUNNING,
+        "latest_file_exists": latest_path.exists(),
+    }
+    if latest_path.exists():
+        info["file_size_bytes"] = latest_path.stat().st_size
+        info["last_modified"] = datetime.fromtimestamp(
+            latest_path.stat().st_mtime, tz=timezone.utc
+        ).isoformat()
+        # Count lines
+        try:
+            with open(latest_path, "r") as f:
+                line_count = sum(1 for _ in f)
+            info["article_count"] = line_count
+            # Count reviews
+            with open(latest_path, "r") as f:
+                reviews = 0
+                for line in f:
+                    entry = json.loads(line)
+                    if entry.get("ai_review"):
+                        reviews += 1
+                info["with_ai_review"] = reviews
+        except Exception:
+            pass
+    return info
+
+
+@app.get("/train-data/latest")
+async def download_training_data():
+    """Download the latest training data JSONL file."""
+    latest_path = Path("/tmp/training_data.jsonl")
+    if not latest_path.exists():
+        raise HTTPException(status_code=404, detail="No training data file found. Run POST /train-data/generate first.")
+    return FileResponse(
+        path=str(latest_path),
+        filename="training_data.jsonl",
+        media_type="application/x-ndjson",
+        headers={"Content-Disposition": "attachment; filename=training_data.jsonl"},
+    )
 
 
 if __name__ == "__main__":
