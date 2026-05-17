@@ -8,16 +8,17 @@ services:
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
-        sync: false  # ⚠️ REQUIRED — set this manually in Render dashboard.
-                      #    Use Supabase or Render PostgreSQL.
-                      #    See .env.example for details.
+        sync: false  # Required - set this manually in Render dashboard.
       - key: API_KEY
-        sync: false  # Optional — set this to lock down POST endpoints.
-                      #    Generate with: openssl rand -hex 32
-      - key: GEMINI_API_KEY
-        sync: false  # ⚠️ REQUIRED for exam playbooks. Get from https://aistudio.google.com/apikey
+        sync: false  # Optional - set this to lock down POST endpoints.
+      - key: OPENROUTER_API_KEY
+        sync: false  # Required for Owl Alpha exam playbooks. Free-tier request limits still apply.
+      - key: AI_MIN_REQUEST_INTERVAL_SECONDS
+        value: "3.5"
+      - key: AI_FREE_TIER_RUN_CAP
+        value: "20"
       - key: CORS_ORIGINS
-        value: "https://your-frontend.vercel.app"  # ⚠️ Change to your actual frontend URL
+        value: "https://your-frontend.vercel.app"  # Change to your actual frontend URL
       - key: LOG_LEVEL
         value: "INFO"
     healthCheckPath: /

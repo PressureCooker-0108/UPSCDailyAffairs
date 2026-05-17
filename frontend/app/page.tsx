@@ -546,7 +546,7 @@ export default function Home() {
               <Zap className="h-3 w-3 shrink-0" /> Local ML Filtering
             </span>
             <span className="flex items-center gap-1">
-              <BrainCircuit className="h-3 w-3 shrink-0" /> Gemini Analysis
+              <BrainCircuit className="h-3 w-3 shrink-0" /> AI Playbook
             </span>
             <span className="flex items-center gap-1">
               <BookOpen className="h-3 w-3 shrink-0" /> Syllabus-Aware

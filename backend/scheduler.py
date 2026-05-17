@@ -11,7 +11,12 @@ from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
 from upsc_filter import score_relevance, score_novelty, record_story
-from upsc_analyzer import generate_exam_playbook, GEMINI_RELEVANCE_THRESHOLD, _reset_key_state
+from upsc_analyzer import (
+    AI_RELEVANCE_THRESHOLD,
+    generate_exam_playbook,
+    get_ai_runtime_status,
+    prepare_ai_run,
+)
 from models.database import (
     save_articles, save_stories,
     get_existing_playbooks,
@@ -26,8 +31,8 @@ _pipeline_status: dict = {
     "last_run_duration": None,
     "last_run_success": None,
     "total_stories_processed": 0,
-    "total_gemini_success": 0,
-    "total_gemini_failures": 0,
+    "total_ai_success": 0,
+    "total_ai_failures": 0,
 }
 
 
@@ -56,11 +61,18 @@ def run_pipeline() -> None:
     _pipeline_status["last_run_start"] = datetime.now(timezone.utc).isoformat()
     logger.info("=== Pipeline start ===")
 
-    gemini_success = 0
-    gemini_failures = 0
+    ai_success = 0
+    ai_failures = 0
+    ai_eligible = 0
+    ai_skipped_cached = 0
+    ai_skipped_budget = 0
 
-    # Reset Gemini key state so exhausted keys from previous runs get a fresh chance
-    _reset_key_state()
+    ai_status = prepare_ai_run()
+    logger.info(
+        "[AI] Run prepared "
+        f"(model={ai_status['model']}, free_tier={ai_status['is_free_tier']}, "
+        f"run_cap={ai_status['run_cap']}, has_key_info={ai_status['has_key_info']})"
+    )
 
     try:
         # 1. Fetch
@@ -144,28 +156,31 @@ def run_pipeline() -> None:
                 # 8. Summarize (only UPSC-relevant stories)
                 stories = summarize_stories(filtered_stories)
 
-            # 9. Gemini-powered exam intelligence (for high-priority stories)
-            # Proactive throttling: 13s delay between stories to stay within
-            # Gemini 2.0 Flash free tier limit of 5 RPM (~4.6 req/min).
-            # The delay is applied BEFORE the API call so we never burst past
-            # the quota. Additionally, each story that gets 429'd will use
-            # exponential backoff (6s, 12s, 24s) inside generate_exam_playbook.
-            #
-            # First, load any existing playbooks so we can skip re-generation
+            # 9. AI-powered exam intelligence (for high-priority stories)
+            # OpenRouter pacing and retry behavior is enforced inside
+            # upsc_analyzer.generate_exam_playbook(), including free-tier
+            # budgeting, Retry-After handling, and run-level exhaustion.
             existing_playbooks = get_existing_playbooks()
-            for i, story in enumerate(stories):
+            for story in stories:
                 rel_score = story.get("relevance_score", 0)
-                if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
-                    # Check if this story already has a playbook in the DB
+                if rel_score >= AI_RELEVANCE_THRESHOLD:
+                    ai_eligible += 1
                     existing = existing_playbooks.get(story["title"])
                     if existing is not None:
                         story["exam_playbook"] = existing
-                        logger.info(f"[GEMINI] Reused existing playbook for: {story['title'][:60]}")
+                        ai_skipped_cached += 1
+                        logger.info(f"[AI] Reused existing playbook for: {story['title'][:60]}")
                         continue
 
-                    # Proactive delay before the API call (skip on first story)
-                    if i > 0:
-                        time.sleep(13.0)
+                    runtime_status = get_ai_runtime_status()
+                    if runtime_status.get("budget_exhausted"):
+                        ai_skipped_budget += 1
+                        story["exam_playbook"] = None
+                        logger.warning(
+                            f"[AI] Budget exhausted earlier in this run; "
+                            f"skipping: {story['title'][:60]}"
+                        )
+                        continue
 
                     try:
                         playbook = generate_exam_playbook(
@@ -179,14 +194,26 @@ def run_pipeline() -> None:
                         )
                         story["exam_playbook"] = playbook
                         if playbook:
-                            gemini_success += 1
-                            logger.info(f"[GEMINI] Generated exam playbook for: {story['title'][:60]}")
+                            ai_success += 1
+                            logger.info(f"[AI] Generated exam playbook for: {story['title'][:60]}")
                         else:
-                            gemini_failures += 1
-                            logger.warning(f"[GEMINI] Failed to generate playbook for: {story['title'][:60]}")
+                            runtime_status = get_ai_runtime_status()
+                            last_result = runtime_status.get("last_result")
+                            if last_result in {"skipped_budget", "rate_limited"}:
+                                ai_skipped_budget += 1
+                                logger.warning(
+                                    f"[AI] Skipped playbook for rate-limit budget reasons: "
+                                    f"{story['title'][:60]}"
+                                )
+                            else:
+                                ai_failures += 1
+                                logger.warning(
+                                    f"[AI] Failed to generate playbook for: "
+                                    f"{story['title'][:60]} (reason={last_result})"
+                                )
                     except Exception as e:
-                        gemini_failures += 1
-                        logger.warning(f"[GEMINI] Analysis failed for '{story['title'][:60]}': {e}")
+                        ai_failures += 1
+                        logger.warning(f"[AI] Analysis failed for '{story['title'][:60]}': {e}")
                         story["exam_playbook"] = None
                 else:
                     story["exam_playbook"] = None
@@ -218,8 +245,14 @@ def run_pipeline() -> None:
         _pipeline_status["last_run_duration"] = round(elapsed, 1)
         _pipeline_status["last_run_success"] = True
         _pipeline_status["total_stories_processed"] = len(filtered_stories)
-        _pipeline_status["total_gemini_success"] += gemini_success
-        _pipeline_status["total_gemini_failures"] += gemini_failures
+        _pipeline_status["total_ai_success"] += ai_success
+        _pipeline_status["total_ai_failures"] += ai_failures
+        logger.info(
+            "[AI] Run summary "
+            f"(eligible={ai_eligible}, cached={ai_skipped_cached}, "
+            f"budget_skipped={ai_skipped_budget}, success={ai_success}, "
+            f"failures={ai_failures}, used={get_ai_runtime_status()['ai_calls_used']})"
+        )
         logger.info(f"=== Pipeline complete in {elapsed:.1f}s ===")
 
     except Exception as e:

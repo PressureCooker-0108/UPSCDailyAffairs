@@ -75,7 +75,7 @@ cd frontend && npm install && npm run dev
 - **7 intelligence sectors**: Markets, Tech, Geopolitics, Energy, India, Sports, General
 - **TF-IDF clustering** — no external ML models, instant startup, works in 512MB RAM
 - **4-factor ranking** — coverage, recency, source authority, source diversity
-- **UPSC Intelligence** — relevance scoring, novelty detection, exam playbook generation
+- **UPSC Intelligence** — relevance scoring, novelty detection, Owl Alpha exam playbook generation
 - **Automated briefings** — Markdown + PDF executive summaries
 - **Market data** — 33 tickers via yfinance, refreshed every pipeline run
 - **Story reviews** — users can flag incorrect sectors, rate summaries, and report missing images
@@ -96,11 +96,15 @@ cd frontend && npm install && npm run dev
 
 ## Environment Variables
 
+OpenRouter note: `openrouter/owl-alpha` is currently configured as the playbook model. It is free to use, but free-tier request limits still apply and the provider may log prompts/completions for this model.
+
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `DATABASE_URL` | For production | PostgreSQL connection string |
 | `API_KEY` | Recommended | Auth for POST endpoints |
 | `CORS_ORIGINS` | For production | Frontend URL for CORS |
-| `GEMINI_API_KEY` | Recommended | Enables exam playbook generation |
+| `OPENROUTER_API_KEY` | Recommended | Enables Owl Alpha exam playbook generation |
+| `AI_MIN_REQUEST_INTERVAL_SECONDS` | No | Default: 3.5 seconds between OpenRouter requests |
+| `AI_FREE_TIER_RUN_CAP` | No | Default: 20 AI calls per run on assumed free tier |
 | `LOG_LEVEL` | No | Default: INFO |
 | `NEXT_PUBLIC_API_URL` | For frontend | Backend URL |
