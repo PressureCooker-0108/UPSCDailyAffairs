@@ -11,7 +11,7 @@ from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
 from upsc_filter import score_relevance, score_novelty, record_story
-from upsc_analyzer import generate_exam_playbook, GEMINI_RELEVANCE_THRESHOLD
+from upsc_analyzer import generate_exam_playbook, GEMINI_RELEVANCE_THRESHOLD, _reset_key_state
 from models.database import (
     save_articles, save_stories,
     get_existing_playbooks,
@@ -58,6 +58,9 @@ def run_pipeline() -> None:
 
     gemini_success = 0
     gemini_failures = 0
+
+    # Reset Gemini key state so exhausted keys from previous runs get a fresh chance
+    _reset_key_state()
 
     try:
         # 1. Fetch

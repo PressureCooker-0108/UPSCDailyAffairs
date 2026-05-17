@@ -48,6 +48,15 @@ GEMINI_RELEVANCE_THRESHOLD = 0.65
 
 # Module-level round-robin key state
 _api_key_cycle: itertools.cycle | None = None
+_exhausted_keys: set[str] = set()  # keys that have hit daily quota exhaustion
+
+
+def _reset_key_state() -> None:
+    """Reset all key-related state. Called on each pipeline run to clear
+    exhausted-key tracking that might be stale from a previous run."""
+    global _api_key_cycle, _exhausted_keys
+    _api_key_cycle = None
+    _exhausted_keys = set()
 
 
 def _load_api_keys() -> list[str]:
@@ -79,15 +88,27 @@ def _load_api_keys() -> list[str]:
 
 
 def _get_next_key() -> str | None:
-    """Get the next API key via round-robin across all configured keys."""
-    global _api_key_cycle
-    if _api_key_cycle is None:
-        all_keys = _load_api_keys()
-        if not all_keys:
-            return None
-        _api_key_cycle = itertools.cycle(all_keys)
-        if len(all_keys) > 1:
-            logger.info(f"Loaded {len(all_keys)} Gemini API keys, using round-robin rotation")
+    """Get the next API key via round-robin across all configured keys.
+
+    Always rebuilds the cycle from currently active (non-exhausted) keys.
+    Returns None if ALL keys are exhausted — no point retrying until
+    daily quota reset or billing is enabled.
+    """
+    global _api_key_cycle, _exhausted_keys
+    all_keys = _load_api_keys()
+    if not all_keys:
+        return None
+
+    # Remove exhausted keys from the pool
+    active_keys = [k for k in all_keys if k not in _exhausted_keys]
+    if not active_keys:
+        logger.error("[GEMINI] All API keys have exhausted their daily quota — skipping all Gemini calls")
+        return None
+
+    # Rebuild the cycle every time so exhausted keys are excluded immediately
+    _api_key_cycle = itertools.cycle(active_keys)
+    if len(active_keys) > 1:
+        logger.info(f"Loaded {len(active_keys)} Gemini API keys, using round-robin rotation")
     return next(_api_key_cycle)  # type: ignore[arg-type]
 
 
@@ -287,8 +308,22 @@ def generate_exam_playbook(
                         response = client.post(url, json=payload)
 
                     if response.status_code == 429:
-                        # Rate limited — exponential backoff: 6s, 12s, 24s
                         last_error = f"429 - {response.text[:200]}"
+                        # Check if this is quota exhaustion vs rate limiting
+                        # Quota exhaustion: "You exceeded your current quota"
+                        # Rate limiting: "rate limit" or just 429 without quota message
+                        error_body = response.text.lower()
+                        is_quota_exhausted = "quota" in error_body or "billing" in error_body
+
+                        if is_quota_exhausted:
+                            logger.warning(
+                                f"[GEMINI] Key quota exhausted for {model} — "
+                                f"marking key as dead for this run"
+                            )
+                            _exhausted_keys.add(api_key)
+                            break  # Don't retry, try next model
+
+                        # Pure rate limiting — exponential backoff: 6s, 12s, 24s
                         retries += 1
                         if retries <= _GEMINI_MAX_RETRIES:
                             backoff = _GEMINI_BACKOFF_BASE * (2 ** (retries - 1))
