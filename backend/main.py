@@ -408,9 +408,12 @@ def trigger_training_data_generation():
             enriched = run_tfidf_pipeline(articles)
             logger.info(f"[Train-Data] Classified {len(enriched)} articles")
 
-            # Step 3: AI reviews (limit to 50 articles to stay within budget)
-            results = run_ai_reviews(enriched, max_articles=50)
+            # Step 3: AI reviews with timeout guard
+            # max_articles=25 limits API spend; timeout_seconds=420 (7 min) prevents hanging
+            results = run_ai_reviews(enriched, max_articles=25, timeout_seconds=420)
             logger.info(f"[Train-Data] Generated {sum(1 for r in results if r.get('ai_review'))} reviews")
+
+            # If timeout was hit, partial data is saved to /tmp/training_data_partial.jsonl
 
             # Step 4: Save
             output_path = save_training_data(results, "/tmp/training_data.jsonl")

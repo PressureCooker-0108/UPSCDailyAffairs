@@ -113,11 +113,25 @@ def run_tfidf_pipeline(articles: list[dict]) -> list[dict]:
     return enriched
 
 
-def run_ai_reviews(enriched: list[dict], max_articles: int = 0) -> list[dict]:
+def _save_partial(results: list[dict], output_path: str) -> None:
+    """Save partial results incrementally so nothing is lost if the process is interrupted."""
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        for entry in results:
+            f.write(json.dumps(entry, ensure_ascii=False, default=str) + "\n")
+
+
+def run_ai_reviews(enriched: list[dict], max_articles: int = 0, timeout_seconds: int = 600) -> list[dict]:
     """Generate AI review verdicts for enriched articles.
 
     Uses the round-robin multi-key system from upsc_analyzer.
     Only reviews articles that passed the TF-IDF filter (is_relevant=True).
+
+    Features:
+      - timeout_seconds: hard stop after this many seconds (default 10 min)
+      - Incremental saving every 10 articles to a temp file
+      - Graceful handling of API errors (logs and continues)
     """
     # Prepare AI budget
     status = prepare_ai_run()
@@ -137,14 +151,22 @@ def run_ai_reviews(enriched: list[dict], max_articles: int = 0) -> list[dict]:
         candidates = candidates[:max_articles]
         logger.info(f"[AI] Limited to {max_articles} articles for this run")
 
+    start_time = time.time()
     results = []
     for i, article in enumerate(candidates):
+        # Timeout guard
+        elapsed = time.time() - start_time
+        if elapsed >= timeout_seconds:
+            logger.warning(f"[AI] Timeout reached ({elapsed:.0f}s ≥ {timeout_seconds}s) after {i} reviews — stopping")
+            break
+
+        # Budget guard
         runtime = get_ai_runtime_status()
         if runtime.get("budget_exhausted"):
             logger.warning(f"[AI] Budget exhausted after {i} reviews — stopping")
             break
 
-        logger.info(f"[AI] Reviewing {i + 1}/{len(candidates)}: {article['title'][:60]}...")
+        logger.info(f"[AI] Reviewing {i + 1}/{len(candidates)}: {article['title'][:60]}... (elapsed: {elapsed:.0f}s)")
 
         try:
             review = generate_review_verdict(
@@ -166,6 +188,7 @@ def run_ai_reviews(enriched: list[dict], max_articles: int = 0) -> list[dict]:
 
         # Save incrementally every 10 articles
         if (i + 1) % 10 == 0:
+            _save_partial(results, "/tmp/training_data_partial.jsonl")
             logger.info(f"[AI] {i + 1}/{len(candidates)} reviews complete — "
                         f"{sum(1 for r in results if r.get('ai_review'))} succeeded, "
                         f"{sum(1 for r in results if not r.get('ai_review'))} failed")
@@ -180,8 +203,10 @@ def run_ai_reviews(enriched: list[dict], max_articles: int = 0) -> list[dict]:
                 "review_generated_at": None,
             })
 
+    elapsed = time.time() - start_time
     logger.info(
-        f"[AI] Reviews complete: {sum(1 for r in results if r.get('ai_review'))} reviews "
+        f"[AI] Reviews complete in {elapsed:.0f}s: "
+        f"{sum(1 for r in results if r.get('ai_review'))} reviews "
         f"generated, {sum(1 for r in results if not r.get('ai_review'))} unlabeled"
     )
     return results
