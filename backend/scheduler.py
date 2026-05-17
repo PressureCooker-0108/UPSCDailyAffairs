@@ -14,6 +14,7 @@ from upsc_filter import generate_why_it_matters, score_relevance, score_novelty,
 from upsc_analyzer import (
     AI_RELEVANCE_THRESHOLD,
     generate_exam_playbook,
+    generate_review_verdict,
     get_ai_runtime_status,
     prepare_ai_run,
     probe_openrouter,
@@ -168,22 +169,67 @@ def run_pipeline() -> None:
                 # 8. Summarize (only UPSC-relevant stories)
                 stories = summarize_stories(filtered_stories)
 
-            # 9. AI-powered exam intelligence (for high-priority stories)
-            # OpenRouter pacing and retry behavior is enforced inside
-            # upsc_analyzer.generate_exam_playbook(), including free-tier
-            # budgeting, Retry-After handling, and run-level exhaustion.
+            # 9. AI review verdicts + exam playbooks
+            # Two-phase AI processing:
+            #   Phase 1 — Lightweight review verdict (PASS/FLAG/REJECT)
+            #   Phase 2 — Full exam playbook (only for PASS/FLAG verdicts)
+            #
+            # Review runs FIRST as a gatekeeper: if the AI rejects a story,
+            # we skip the expensive playbook call entirely, saving budget.
             existing_playbooks = get_existing_playbooks()
             for story in stories:
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= AI_RELEVANCE_THRESHOLD:
                     ai_eligible += 1
+
+                    # ── Phase 1: AI Review Verdict ──
+                    review = None
                     existing = existing_playbooks.get(story["title"])
                     if existing is not None:
+                        # Already has a playbook — skip review + re-gen
                         story["exam_playbook"] = existing
+                        story["ai_review"] = {"verdict": "PASS", "reasoning": "Cached from previous run"}
                         ai_skipped_cached += 1
                         logger.info(f"[AI] Reused existing playbook for: {story['title'][:60]}")
                         continue
 
+                    # Get full text for review from the cluster
+                    cluster_text = story.get("cluster", [])
+                    full_text = ""
+                    if cluster_text:
+                        articles_text = []
+                        for a in cluster_text[:3]:
+                            articles_text.append(
+                                a.get("content_snippet", a.get("title", ""))
+                            )
+                        full_text = " ".join(articles_text)
+                    if not full_text:
+                        full_text = story.get("summary", story.get("title", ""))
+
+                    try:
+                        review = generate_review_verdict(
+                            headline=story["title"],
+                            full_text=full_text,
+                            gs_paper=story.get("gs_paper", ""),
+                            subtopics=story.get("subtopics", []),
+                            why_it_matters=story.get("why_it_matters", ""),
+                        )
+                    except Exception as e:
+                        logger.warning(f"[AI Review] Failed for '{story['title'][:60]}': {e}")
+                        review = None
+
+                    story["ai_review"] = review
+
+                    # If review verdict is REJECT, skip playbook entirely
+                    if review and review.get("verdict") == "REJECT":
+                        story["exam_playbook"] = None
+                        logger.info(
+                            f"[AI Review] REJECTED '{story['title'][:60]}' — skipping playbook "
+                            f"(reason: {review.get('reasoning', 'N/A')[:80]})"
+                        )
+                        continue
+
+                    # ── Phase 2: Exam Playbook (only for PASS/FLAG) ──
                     runtime_status = get_ai_runtime_status()
                     if runtime_status.get("budget_exhausted"):
                         ai_skipped_budget += 1
@@ -229,6 +275,7 @@ def run_pipeline() -> None:
                         story["exam_playbook"] = None
                 else:
                     story["exam_playbook"] = None
+                    story["ai_review"] = None
 
             if not filtered_stories:
                 db.close()

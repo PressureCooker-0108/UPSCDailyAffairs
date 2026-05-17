@@ -67,6 +67,7 @@ class Summary(Base):
     gs_paper = Column(String, nullable=True)       # GS paper mapping (e.g., "GS2", "GS3", "Prelims")
     subtopics = Column(Text, nullable=True)         # JSON-serialized list of subtopics
     exam_playbook = Column(Text, nullable=True)     # JSON-serialized exam intelligence from OpenRouter/Owl Alpha
+    ai_review = Column(Text, nullable=True)          # JSON-serialized AI review verdict (PASS/FLAG/REJECT)
 
 
 class StoryReview(Base):
