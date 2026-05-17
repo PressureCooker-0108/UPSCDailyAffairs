@@ -30,11 +30,11 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Gemini API configuration
-_GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17"
+_GEMINI_MODEL = "gemini-1.5-flash"
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 500
-_GEMINI_TIMEOUT_SECONDS = 15.0
+_GEMINI_TIMEOUT_SECONDS = 30.0
 
 # Threshold — only process stories with relevance >= this
 GEMINI_RELEVANCE_THRESHOLD = 0.5

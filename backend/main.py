@@ -282,6 +282,59 @@ def test_fetch():
         return {"error": str(e), "detail": "Fetch failed"}
 
 
+@app.get("/pipeline/test-gemini")
+def test_gemini():
+    """Test Gemini API key connectivity without running the full pipeline."""
+    try:
+        from upsc_analyzer import _get_api_key
+        api_key = _get_api_key()
+        if not api_key:
+            return {"status": "error", "message": "GEMINI_API_KEY not set in environment"}
+
+        import httpx
+        from upsc_analyzer import _GEMINI_MODEL, _GEMINI_BASE_URL, _GEMINI_TIMEOUT_SECONDS
+
+        url = f"{_GEMINI_BASE_URL}/{_GEMINI_MODEL}:generateContent?key={api_key}"
+        payload = {
+            "contents": [{
+                "parts": [{"text": "Say 'Gemini API is working' in 3 words."}]
+            }],
+            "generationConfig": {
+                "temperature": 0.0,
+                "maxOutputTokens": 50,
+            },
+        }
+
+        with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
+            response = client.post(url, json=payload)
+
+        if response.status_code != 200:
+            return {
+                "status": "error",
+                "message": f"API returned {response.status_code}",
+                "detail": response.text[:300],
+            }
+
+        data = response.json()
+        candidates = data.get("candidates", [])
+        if not candidates:
+            return {"status": "error", "message": "No candidates returned", "detail": str(data)[:300]}
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            return {"status": "error", "message": "No content parts", "detail": str(data)[:300]}
+
+        text = parts[0].get("text", "")
+        return {
+            "status": "ok",
+            "model": _GEMINI_MODEL,
+            "response": text,
+            "api_key_set": True,
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.get("/pipeline/db-status")
 def db_status():
     try:
