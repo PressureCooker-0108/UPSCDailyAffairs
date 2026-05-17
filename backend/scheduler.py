@@ -113,9 +113,11 @@ def run_pipeline() -> None:
                 stories = summarize_stories(filtered_stories)
 
             # 9. Gemini-powered exam intelligence (for high-priority stories)
+            # Rate-limited to stay within free tier (60 req/min for gemini-2.0-flash)
             for story in stories:
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
+                    time.sleep(1.5)  # ~40 req/min, well within free quota
                     try:
                         playbook = generate_exam_playbook(
                             headline=story["title"],
