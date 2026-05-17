@@ -16,8 +16,8 @@ Gemini NEVER:
 
 Uses:
   - httpx (REST API, NOT Google SDK)
-  - gemini-2.5-flash model (primary)
-  - temperature = 0.2, maxOutputTokens = 500
+  - gemini-2.0-flash model (primary)
+  - temperature = 0.2, maxOutputTokens = 1024
 """
 
 import itertools
@@ -31,8 +31,8 @@ import httpx
 
 
 # Gemini API configuration
-_GEMINI_MODEL = "gemini-2.5-flash"
-_GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash"]
+_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite"]
 _GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
 # Exponential backoff for 429 retries: 6s, 12s, 24s (3 retries max per model)
 _GEMINI_BACKOFF_BASE = 6.0  # starting backoff in seconds
@@ -152,9 +152,8 @@ Why it matters: {why_it_matters}
 def _parse_gemini_response(response_text: str) -> dict[str, Any] | None:
     """Parse the Gemini API response, extracting the structured JSON.
 
-    With response_mime_type="application/json" the model should return
-    raw JSON. This function handles that, and also falls back to
-    extracting JSON from markdown code fences for older models.
+    Handles various response formats — raw JSON, markdown-wrapped JSON
+    (```json ... ```), and orphaned JSON blocks.
     """
     text = response_text.strip()
 
@@ -265,7 +264,6 @@ def generate_exam_playbook(
             "generationConfig": {
                 "temperature": _GEMINI_TEMPERATURE,
                 "maxOutputTokens": _GEMINI_MAX_TOKENS,
-                "response_mime_type": "application/json",
             },
         }
 
