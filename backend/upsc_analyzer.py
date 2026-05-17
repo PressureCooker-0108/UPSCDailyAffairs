@@ -20,6 +20,7 @@ Uses:
   - temperature = 0.2, maxOutputTokens = 500
 """
 
+import itertools
 import json
 import logging
 import os
@@ -45,9 +46,41 @@ _GEMINI_TIMEOUT_SECONDS = 30.0
 GEMINI_RELEVANCE_THRESHOLD = 0.5
 
 
-def _get_api_key() -> str | None:
-    """Get Gemini API key from environment."""
-    return os.environ.get("GEMINI_API_KEY")
+# Module-level round-robin key state
+_api_key_cycle: itertools.cycle | None = None
+
+
+def _load_api_keys() -> list[str]:
+    """Load all Gemini API keys from environment variables.
+
+    Supports multiple keys via GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+    Falls back to single GEMINI_API_KEY for backward compatibility.
+    """
+    keys = []
+    for i in itertools.count(1):
+        key = os.environ.get(f"GEMINI_API_KEY_{i}")
+        if key:
+            keys.append(key)
+        else:
+            break
+    if not keys:
+        single = os.environ.get("GEMINI_API_KEY")
+        if single:
+            keys = [single]
+    return keys
+
+
+def _get_next_key() -> str | None:
+    """Get the next API key via round-robin across all configured keys."""
+    global _api_key_cycle
+    if _api_key_cycle is None:
+        all_keys = _load_api_keys()
+        if not all_keys:
+            return None
+        _api_key_cycle = itertools.cycle(all_keys)
+        if len(all_keys) > 1:
+            logger.info(f"Loaded {len(all_keys)} Gemini API keys, using round-robin rotation")
+    return next(_api_key_cycle)  # type: ignore[arg-type]
 
 
 def _build_upsc_prompt(
@@ -174,9 +207,9 @@ def generate_exam_playbook(
     if relevance_score < GEMINI_RELEVANCE_THRESHOLD:
         return None
 
-    api_key = _get_api_key()
+    api_key = _get_next_key()
     if not api_key:
-        logger.warning("GEMINI_API_KEY not set — skipping Gemini analysis")
+        logger.warning("No GEMINI_API_KEY set — skipping Gemini analysis")
         return None
 
     subtopics = subtopics or []
