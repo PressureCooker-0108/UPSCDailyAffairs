@@ -2,7 +2,7 @@
 upsc_analyzer.py — Gemini-Powered UPSC Exam Intelligence
 
 SECONDARY intelligence layer. ONLY processes stories that have already been
-pre-filtered by upsc_filter.py (relevance_score >= 0.5).
+pre-filtered by upsc_filter.py (relevance_score >= 0.65).
 
 Gemini is ONLY:
   - a structured reasoning layer
@@ -43,7 +43,7 @@ _GEMINI_MAX_TOKENS = 1024
 _GEMINI_TIMEOUT_SECONDS = 30.0
 
 # Threshold — only process stories with relevance >= this
-GEMINI_RELEVANCE_THRESHOLD = 0.5
+GEMINI_RELEVANCE_THRESHOLD = 0.65
 
 
 # Module-level round-robin key state
