@@ -1,9 +1,9 @@
 #!/bin/bash
-# Startup script for the News Dashboard Backend on Render
+# Startup script for the UPSC Daily Affairs Backend on Render
 
 set -e
 
-echo "=== News Dashboard Backend Startup ==="
+echo "=== UPSC Daily Affairs Backend Startup ==="
 echo "Starting uvicorn server..."
 
 # Use the PORT provided by Render (default 8001 for local dev)

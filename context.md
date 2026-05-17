@@ -1,8 +1,8 @@
-# Serious Operator News Dashboard — Complete Project Context
+# UPSC Daily Affairs — Complete Project Context
 
 ## 1. Project Identity
 
-**Name:** Serious Operator News Dashboard
+**Name:** UPSC Daily Affairs
 **Purpose:** High-signal global news aggregation, clustering, ranking, and briefing for founders, investors, and analysts.
 **Philosophy:** Less is more. Top 5-10 stories max. No clickbait. No fluff. Signal over noise.
 **Stack:** Python/FastAPI (backend) + Next.js 16/React 19 (frontend) + PostgreSQL (database)
@@ -451,6 +451,6 @@ git add <specific files> && git commit -m "msg" && git push
 
 - Git operations fail with `git add -A` due to a `nul` reserved device artifact
 - Always use `git add <file1> <file2> ...` with explicit file paths
-- The project lives at `C:\Users\Adity\OneDrive\Desktop\Projects\news-dashboard`
+- The project lives at `C:\Users\Adity\OneDrive\Desktop\Projects\upsc-daily-affairs`
 - Python 3.14 installed locally (but deployment uses 3.11 via runtime.txt)
 - Line endings: LF → CRLF warnings on git add are normal on Windows

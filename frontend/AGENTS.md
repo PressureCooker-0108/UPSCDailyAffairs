@@ -1,6 +1,6 @@
-# Serious Operator News Dashboard — AI Agent Reference
+# UPSC Daily Affairs — AI Agent Reference
 
-This document is a comprehensive reference of the **Serious Operator News Dashboard** project. It is designed for AI agents (Claude, ChatGPT, Codebuff, etc.) to understand the entire codebase without direct file access.
+This document is a comprehensive reference of the **UPSC Daily Affairs** project. It is designed for AI agents (Claude, ChatGPT, Codebuff, etc.) to understand the entire codebase without direct file access.
 
 **Last updated:** April 2025
 **Project status:** Active development — backend complete, frontend complete, deployment in progress.
@@ -51,9 +51,9 @@ This document is a comprehensive reference of the **Serious Operator News Dashbo
 
 ## 1. Project Overview
 
-The **Serious Operator News Dashboard** aggregates news from 26+ global RSS sources, deduplicates and clusters similar articles, classifies them into 7 intelligence sectors (Markets, Tech, Geopolitics, Energy, India, Sports, General), ranks them by importance, generates summaries with "why it matters" analysis, provides market data via yfinance, collects user story reviews for fine-tuning, and serves everything through a clean API and a Next.js frontend.
+**UPSC Daily Affairs** aggregates news from 40+ global RSS sources, deduplicates and clusters similar articles, classifies them into 7 intelligence sectors (Markets, Tech, Geopolitics, Energy, India, Sports, General), ranks them by importance, generates summaries with "why it matters" analysis, provides market data via yfinance, collects user story reviews for fine-tuning, and serves everything through a clean API and a Next.js frontend.
 
-**Target users:** Founders, investors, analysts, and curious high-agency individuals.
+**Target users:** UPSC Civil Services aspirants, educators, and exam-prep platforms.
 
 **Core philosophy:**
 - **Less is more** — top 5–10 stories max, not a firehose
@@ -265,7 +265,7 @@ CACHE_TTL = 300  # 5 minutes
 ```python
 @app.get("/")
 def health():
-    return {"status": "seriously operational"}
+    return {"status": "ok", "app": "UPSC Daily Affairs"}
 ```
 Does NOT touch the database. Render's health check will never 500 due to DB issues.
 
@@ -695,7 +695,7 @@ Generates a formatted Markdown executive briefing:
 
 ---
 
-*Generated automatically by the Serious Operator News Dashboard*
+*Generated automatically by UPSC Daily Affairs*
 ```
 
 ---
@@ -780,7 +780,7 @@ markers = [
 - ThemeProvider (next-themes) wrapping children
 - Toaster (sonner) for toast notifications
 - Dark mode supported but defaults to light
-- Metadata: "Serious Operator News Dashboard"
+- Metadata: "UPSC Daily Affairs"
 
 **`page.tsx`** — Main dashboard (client component):
 - State: `stories`, `loading`, `error`, `searchQuery`, `trendingData`, `now`, `lastFetchedAt`
@@ -805,7 +805,7 @@ markers = [
 **File:** `frontend/components/header.tsx`
 
 Sticky header (`backdrop-blur-xl`):
-- **Brand:** Globe icon with green pulsing dot + "Operator Brief" title + tagline
+- **Brand:** Globe icon with green pulsing dot + "UPSC Daily Affairs" title + tagline
 - **Actions:** Theme toggle (sun/moon), MD download, JSON download, PDF download, Refresh button
 - **Refresh:** POSTs to `/pipeline/run`, handles 429 rate limit with toast, reloads page on success
 - **API URL:** Falls back to `http://127.0.0.1:8001` if `NEXT_PUBLIC_API_URL` is not set
@@ -1111,7 +1111,7 @@ Health check. No database dependency.
 
 **Response:**
 ```json
-{ "status": "seriously operational" }
+{ "status": "ok", "app": "UPSC Daily Affairs" }
 ```
 
 ### GET /news
@@ -1312,7 +1312,7 @@ Multi-stage build:
 ```yaml
 services:
   - type: web
-    name: news-dashboard-backend
+    name: upsc-daily-affairs-backend
     runtime: image
     region: oregon
     plan: free

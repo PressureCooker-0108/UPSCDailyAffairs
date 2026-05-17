@@ -7,8 +7,7 @@ __pycache__/
 venv/
 *.egg-info/
 .DS_Store
-"*.log" 
-".env" 
-"nul" 
-"*.log" 
-".env" 
+*.log
+backend/logs/
+.env
+nul

@@ -1,5 +1,5 @@
 """
-Shared test fixtures for the News Dashboard backend.
+Shared test fixtures for the UPSC Daily Affairs backend.
 
 Pytest auto-discovers this file and makes fixtures available to all tests.
 """

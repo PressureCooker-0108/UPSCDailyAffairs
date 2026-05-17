@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Serious Operator News Dashboard",
-  description: "High-signal global news aggregation, clustering, and ranking",
+  title: "UPSC Daily Affairs",
+  description: "AI-powered daily current affairs for UPSC Civil Services Examination — syllabus-classified stories, GS paper mapping, and exam playbooks",
 };
 
 export default function RootLayout({

@@ -1,5 +1,5 @@
 """
-Configuration for the Serious Operator News Dashboard.
+Configuration for UPSC Daily Affairs.
 RSS feeds (with sector tags), constants, and topic templates.
 
 Each RSS source can be tagged with one or more sectors:

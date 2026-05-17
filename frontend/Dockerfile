@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# News Dashboard — Frontend Dockerfile
+# UPSC Daily Affairs — Frontend Dockerfile
 # ──────────────────────────────────────────────
 # Build:
 #   docker build -t news-frontend -f frontend/Dockerfile frontend/

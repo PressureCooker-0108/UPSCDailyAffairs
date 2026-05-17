@@ -1,10 +1,10 @@
-# Serious Operator News Dashboard — Frontend
+# UPSC Daily Affairs — Frontend
 
-High-signal global news aggregation frontend, built with Next.js 16, React 19, shadcn/ui, and Tailwind CSS 4.
+UPSC current affairs intelligence frontend, built with Next.js 16, React 19, shadcn/ui, and Tailwind CSS 4.
 
 ## Overview
 
-This is the frontend for the **Serious Operator News Dashboard** — a decision-support tool for founders, investors, and analysts. It displays clustered, ranked, and classified news stories from 26+ RSS sources across 7 intelligence sectors.
+This is the frontend for **UPSC Daily Affairs** — an exam-intelligence platform for UPSC Civil Services aspirants. It displays syllabus-classified current affairs stories from 40+ RSS sources, with GS paper mapping, relevance scoring, and exam playbooks.
 
 ## Tech Stack
 

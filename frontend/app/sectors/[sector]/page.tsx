@@ -225,7 +225,7 @@ export default function SectorPage() {
       </main>
 
       <footer className="border-t border-border mt-12 py-6 text-center text-xs text-muted-foreground">
-        <p>Serious Operator News Dashboard &mdash; {sector} Sector Intelligence</p>
+        <p>UPSC Daily Affairs &mdash; {sector} Current Affairs</p>
       </footer>
     </div>
   )

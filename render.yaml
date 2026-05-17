@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: news-dashboard-backend
+    name: upsc-daily-affairs-backend
     runtime: python
     region: oregon
     plan: free

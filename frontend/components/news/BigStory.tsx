@@ -56,7 +56,7 @@ export function BigStory({ story }: BigStoryProps) {
             <span className="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
           </span>
           <div className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
-            Critical Intelligence
+            Top Story Today
           </div>
         </div>
 

@@ -340,7 +340,7 @@ export default function Dashboard() {
       </main>
 
       <footer className="border-t border-border mt-12 py-8 text-center text-xs text-muted-foreground">
-        <p className="mb-2">Serious Operator News Dashboard &mdash; Intelligence Grade: Reliable</p>
+        <p className="mb-2">UPSC Daily Affairs &mdash; Current Affairs Intelligence for UPSC</p>
         <p>Data aggregated from 16+ global news sources across 6 intelligence sectors</p>
       </footer>
     </div>

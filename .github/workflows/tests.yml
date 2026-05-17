@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# News Dashboard — CI Pipeline
+# UPSC Daily Affairs — CI Pipeline
 # ──────────────────────────────────────────────
 # Runs backend tests on every push to main and on pull requests.
 #

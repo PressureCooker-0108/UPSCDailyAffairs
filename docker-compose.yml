@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# News Dashboard — Docker Compose
+# UPSC Daily Affairs — Docker Compose
 # ──────────────────────────────────────────────
 # Start everything:
 #   docker compose up -d
@@ -17,15 +17,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: newsdash
-      POSTGRES_PASSWORD: newsdash_dev_password
-      POSTGRES_DB: newsdash
+      POSTGRES_USER: upsc_daily
+      POSTGRES_PASSWORD: upsc_daily_dev_password
+      POSTGRES_DB: upsc_daily
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U newsdash"]
+      test: ["CMD-SHELL", "pg_isready -U upsc_daily"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -38,7 +38,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      DATABASE_URL: postgresql://newsdash:newsdash_dev_password@postgres:5432/newsdash?sslmode=disable
+      DATABASE_URL: postgresql://upsc_daily:upsc_daily_dev_password@postgres:5432/upsc_daily?sslmode=disable
       PORT: "8001"
       CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
       PYTHONUNBUFFERED: "1"

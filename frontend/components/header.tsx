@@ -66,10 +66,10 @@ export function Header() {
             </div>
             <div>
               <h1 className="text-xl font-light tracking-tight">
-                Operator <span className="font-semibold">Brief</span>
+                UPSC <span className="font-semibold">Daily Affairs</span>
               </h1>
               <p className="text-[10px] text-muted-foreground -mt-0.5">
-                What actually matters today
+                Syllabus-aligned current affairs
               </p>
             </div>
           </Link>

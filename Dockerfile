@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# News Dashboard — Backend Dockerfile
+# UPSC Daily Affairs — Backend Dockerfile
 # ──────────────────────────────────────────────
 # Built from the repo root. Render uses repo root as build context, so all
 # paths in COPY are relative to the repo root.

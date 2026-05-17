@@ -14,7 +14,7 @@ def generate_briefing() -> str:
     now = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
 
     lines = []
-    lines.append(f"# OPERATOR BRIEF — {now}")
+    lines.append(f"# Daily Affairs Brief — {now}")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -102,7 +102,7 @@ def generate_briefing() -> str:
 
     lines.append("---")
     lines.append("")
-    lines.append("*Generated automatically by the Serious Operator News Dashboard*")
+    lines.append("*Generated automatically by UPSC Daily Affairs*")
 
     content = "\n".join(lines)
     try:

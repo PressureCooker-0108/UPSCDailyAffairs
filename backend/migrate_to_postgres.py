@@ -1,5 +1,5 @@
 """
-News Dashboard - SQLite to Supabase PostgreSQL Migration Script
+UPSC Daily Affairs - SQLite to Supabase PostgreSQL Migration Script
 
 Usage:
     export DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require"

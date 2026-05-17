@@ -1,8 +1,8 @@
-# Serious Operator News Dashboard — Complete Project Context
+# UPSC Daily Affairs — Complete Project Context
 
 ## 1. Project Identity
 
-**Name:** Serious Operator News Dashboard
+**Name:** UPSC Daily Affairs
 **Current Purpose:** High-signal global news aggregation, clustering, ranking, and briefing for founders, investors, and analysts.
 **Active Extension:** UPSC Current Affairs MVP — an exam-intelligence layer on top of the existing pipeline. Every news story relevant to India gets processed into an "exam playbook" (Prelims angle, Mains angle, probable question, static connect, key terms) using the Gemini API. This is served via a new `/upsc` API endpoint and a new `/upsc-dashboard` frontend page.
 **Philosophy:** Less is more. Top 5-10 stories max. No clickbait. No fluff. Signal over noise.
@@ -313,7 +313,7 @@ A standalone HTML/CSS/JS page (no frameworks, no build step) served by FastAPI's
 ## 12. Windows-Specific Notes
 
 - Git `add -A` fails due to `nul` reserved device artifact → always use `git add <file1> <file2> ...`
-- Project path: `C:\Users\Adity\OneDrive\Desktop\Projects\news-dashboard`
+- Project path: `C:\Users\Adity\OneDrive\Desktop\Projects\upsc-daily-affairs`
 - Python 3.14 installed locally (deployment uses 3.11 via runtime.txt)
 - Line endings: LF → CRLF warnings on git add are normal
 

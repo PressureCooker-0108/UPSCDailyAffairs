@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Serious Operator News Dashboard", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="UPSC Daily Affairs", version="2.0.0", lifespan=lifespan)
 
 # ── CORS ──
 # In production, restrict to your frontend domain via the CORS_ORIGINS env var.
@@ -221,7 +221,7 @@ async def api_key_middleware(request: Request, call_next):
 def health():
     """Health check for Render. NEVER touches the database — must always return 200
     even if the DB is down, otherwise Render marks the deploy as failed and restarts."""
-    return {"status": "seriously operational"}
+    return {"status": "ok", "app": "UPSC Daily Affairs"}
 
 
 @app.get("/version")
@@ -392,7 +392,7 @@ def export_markdown():
     """Export the full briefing as markdown."""
     briefing = get_latest_briefing()
     content = briefing["content"] if briefing else generate_briefing()
-    filename = f"operator-brief-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
+    filename = f"daily-affairs-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.md"
     return PlainTextResponse(
         content,
         media_type="text/markdown",
@@ -412,7 +412,7 @@ def export_json():
         "markets": market,
         "source_diversity": diversity,
     }
-    filename = f"operator-brief-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json"
+    filename = f"daily-affairs-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.json"
     return JSONResponse(
         content=data,
         headers={"Content-Disposition": f"attachment; filename={filename}"},
@@ -428,7 +428,7 @@ def export_pdf():
             iter([pdf_bytes]),
             media_type="application/pdf",
         headers={
-            "Content-Disposition": f"attachment; filename=operator-brief-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.pdf",
+            "Content-Disposition": f"attachment; filename=daily-affairs-{datetime.now(timezone.utc).strftime('%Y-%m-%d')}.pdf",
             "Content-Type": "application/pdf",
         },
         )

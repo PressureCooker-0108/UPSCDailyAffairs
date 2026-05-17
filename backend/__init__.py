@@ -1,1 +1,1 @@
-# news_dashboard package
+# upsc_daily_affairs package

@@ -68,7 +68,7 @@ class TestHealthEndpoint:
         data = response.json()
         assert isinstance(data["status"], str)
         assert len(data["status"]) > 0
-        assert data["status"] == "seriously operational"
+        assert data["status"] == "ok"
 
 
 class TestSourcesEndpoint:

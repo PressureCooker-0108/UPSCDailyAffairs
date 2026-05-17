@@ -102,7 +102,7 @@ def _sanitize(text: str) -> str:
 
 
 class BriefingPDF(FPDF):
-    """Custom PDF class for the Operator Brief."""
+    """Custom PDF class for the Daily Affairs Brief."""
 
     def __init__(self):
         super().__init__("P", "mm", "A4")
@@ -112,7 +112,7 @@ class BriefingPDF(FPDF):
         if self.page_no() > 1:
             self.set_font("Helvetica", "I", 7)
             self.set_text_color(*TEXT_MUTED)
-            self.cell(0, 6, _sanitize("Operator Brief"), align="L")
+            self.cell(0, 6, _sanitize("Daily Affairs"), align="L")
             self.cell(0, 6, f"Page {self.page_no()}/{{nb}}", align="R", new_x="LMARGIN", new_y="NEXT")
             self.set_draw_color(*BORDER)
             self.line(18, self.get_y(), 192, self.get_y())
@@ -213,7 +213,7 @@ def generate_pdf_briefing() -> bytes:
     # ── Report Header ──
     pdf.set_font("Helvetica", "B", 22)
     pdf.set_text_color(*ACCENT_LIGHT)
-    pdf.cell(0, 10, _sanitize("OPERATOR BRIEF"), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, _sanitize("DAILY AFFAIRS"), align="C", new_x="LMARGIN", new_y="NEXT")
     now = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(*TEXT_SECONDARY)
