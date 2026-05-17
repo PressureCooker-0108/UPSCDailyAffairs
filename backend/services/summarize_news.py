@@ -311,6 +311,13 @@ def summarize_stories(ranked_stories: list[dict]) -> list[dict]:
             "latest_at": story["latest_at"],
             "sectors": story.get("sectors", ["General"]),
             "image_url": image_url,
+            # Carry forward UPSC fields set by upsc_filter.py
+            "relevance_score": story.get("relevance_score"),
+            "priority_score": story.get("priority_score"),
+            "novelty_score": story.get("novelty_score"),
+            "gs_paper": story.get("gs_paper"),
+            "subtopics": story.get("subtopics", []),
+            "matched_criteria": story.get("matched_criteria", []),
         })
     return results
 

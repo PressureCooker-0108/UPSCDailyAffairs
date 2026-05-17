@@ -47,6 +47,14 @@ class Summary(Base):
     trending_score = Column(Float, nullable=True)  # Historical trending
     image_url = Column(String, nullable=True)  # Image from the cluster's best article
 
+    # --- UPSC Exam Intelligence Columns ---
+    relevance_score = Column(Float, nullable=True)  # UPSC relevance score (0-1)
+    priority_score = Column(Float, nullable=True)  # Priority score (0-1)
+    novelty_score = Column(Float, nullable=True)   # Novelty score (0-1)
+    gs_paper = Column(String, nullable=True)       # GS paper mapping (e.g., "GS2", "GS3", "Prelims")
+    subtopics = Column(Text, nullable=True)         # JSON-serialized list of subtopics
+    exam_playbook = Column(Text, nullable=True)     # JSON-serialized exam intelligence from Gemini
+
 
 class MarketData(Base):
     __tablename__ = "market_data"

@@ -14,6 +14,8 @@ from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
 from services.market_data import fetch_and_store_market_data
 from services.briefing import generate_briefing
+from upsc_filter import score_relevance, score_novelty, record_story
+from upsc_analyzer import generate_exam_playbook
 from models.database import (
     save_articles, save_stories,
     init_db, save_sector_summary, SessionLocal
@@ -58,6 +60,8 @@ def run_pipeline() -> None:
     """
     start = time.time()
     logger.info("=== Pipeline start ===")
+
+    # ── Post-pipeline already runs from _run_post_pipeline() ──
 
     try:
         # ── Phase 1: Core pipeline (sequential) ──
@@ -115,18 +119,78 @@ def run_pipeline() -> None:
             ranked = rank_clusters(clusters)
             logger.info(f"Ranked {len(ranked)} stories")
 
-            # 7. Classify each cluster (source sectors + TF-IDF refinement)
+            # 7. UPSC syllabus-aware relevance scoring
+            # This runs locally using TF-IDF + cosine similarity — NO Gemini calls.
             for i, story in enumerate(ranked):
                 cluster = story["cluster"]
                 text, source_sectors = _build_cluster_text(cluster)
-                logger.info(f"[PIPELINE] Story {i}: {len(cluster)} articles, source_sectors={source_sectors}, first_title={cluster[0].get('title','?')[:40]}")
+                # Classify sectors (original)
                 sectors = classify_sectors(text, source_sectors=source_sectors)
                 story["sectors"] = sectors
+                # UPSC relevance scoring (local ML, no API call)
+                upsc_result = score_relevance(text)
+                novelty = score_novelty(text)
+                story["is_relevant"] = upsc_result["is_relevant"]
+                story["relevance_score"] = upsc_result["relevance_score"]
+                story["priority_score"] = upsc_result["priority_score"]
+                story["novelty_score"] = novelty["novelty_score"]
+                story["gs_paper"] = upsc_result["gs_paper"]
+                story["subtopics"] = upsc_result["subtopics"]
+                story["matched_criteria"] = upsc_result["matched_criteria"]
+                # Record for future novelty comparison
+                record_story(text)
+                logger.info(f"[UPSC] Story {i}: relevance={upsc_result['relevance_score']:.2f}, "
+                    f"priority={upsc_result['priority_score']:.2f}, gs_paper={upsc_result['gs_paper']}")
 
-            # 8. Summarize
-            stories = summarize_stories(ranked)
+            # 8. Filter out low-relevance stories before summarization
+            # This aggressively reduces work for Gemini later.
+            UPSC_RELEVANCE_THRESHOLD = 0.30
+            filtered_stories = [s for s in ranked if s.get("relevance_score", 0) >= UPSC_RELEVANCE_THRESHOLD]
+            filtered_out = len(ranked) - len(filtered_stories)
+            logger.info(f"UPSC filter: kept {len(filtered_stories)} stories, filtered out {filtered_out} low-relevance stories")
 
-            # 9. Generate & save sector summaries (batched)
+            if not filtered_stories:
+                logger.warning("No stories passed UPSC relevance filter — skipping summarization")
+                # Still need to save an empty story list so DB resets properly
+                save_stories([], db=db)
+                db.commit()
+                stories = []
+            else:
+                # 9. Summarize (only UPSC-relevant stories)
+                stories = summarize_stories(filtered_stories)
+
+            # 10. Gemini-powered exam intelligence (only for high-priority stories)
+            # Only call Gemini if relevance_score >= 0.72.
+            GEMINI_RELEVANCE_THRESHOLD = 0.72
+            for story in stories:
+                rel_score = story.get("relevance_score", 0)
+                if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
+                    try:
+                        playbook = generate_exam_playbook(
+                            headline=story["title"],
+                            summary=story.get("summary", ""),
+                            why_it_matters=story.get("why_it_matters", ""),
+                            gs_paper=story.get("gs_paper", "GS Paper II"),
+                            subtopics=story.get("subtopics", []),
+                            matched_criteria=len(story.get("matched_criteria", [])),
+                            relevance_score=rel_score,
+                        )
+                        story["exam_playbook"] = playbook
+                        logger.info(f"[GEMINI] Generated exam playbook for: {story['title'][:60]}")
+                    except Exception as e:
+                        logger.warning(f"[GEMINI] Analysis failed for '{story['title'][:60]}': {e}")
+                        story["exam_playbook"] = None
+                else:
+                    story["exam_playbook"] = None
+
+            if not filtered_stories:
+                db.close()
+                _run_post_pipeline()
+                elapsed = time.time() - start
+                logger.info(f"=== Pipeline complete in {elapsed:.1f}s (no UPSC stories) ===")
+                return
+
+            # 11. Generate & save sector summaries (batched)
             sector_groups: dict[str, list[dict]] = {}
             for s in stories:
                 for sector in s.get("sectors", ["General"]):
@@ -142,7 +206,7 @@ def run_pipeline() -> None:
                 except Exception as e:
                     logger.warning(f"Failed to save sector summary for {sector}: {e}")
 
-            # 10. Save stories (batched)
+            # 12. Save stories (batched)
             logger.info(f"Saving {len(stories)} stories...")
             save_stories(stories, db=db)
             logger.info(f"Saved {len(stories)} stories")

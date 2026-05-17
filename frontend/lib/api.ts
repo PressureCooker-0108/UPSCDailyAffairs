@@ -1,4 +1,4 @@
-import { Story, MarketDataPoint, SectorSummary, SourceDiversity, Briefing } from "@/types/story"
+import { Story, MarketDataPoint, SectorSummary, SourceDiversity, Briefing, UPSCResponse } from "@/types/story"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001"
 
@@ -150,6 +150,41 @@ async function downloadExport(endpoint: string, _ext: string): Promise<void> {
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
+}
+
+// ── UPSC Intelligence API ──
+
+export async function fetchUPSCStories(limit?: number, minRelevance?: number): Promise<UPSCResponse> {
+  try {
+    const params = new URLSearchParams()
+    if (limit) params.set("limit", String(limit))
+    if (minRelevance) params.set("min_relevance", String(minRelevance))
+    const url = `${API_URL}/upsc${params.toString() ? "?" + params.toString() : ""}`
+    const res = await fetch(url, { cache: "no-store" })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    // Map backend 'title' → frontend 'headline' like other fetch functions
+    const mappedStories = (data.stories || []).map((s: any) => ({
+      ...s,
+      headline: s.title || s.headline || "Untitled",
+    }))
+    // Rebuild gs_groups with mapped stories
+    const gsGroups: Record<string, any[]> = {}
+    for (const story of mappedStories) {
+      const paper = story.gs_paper || "Unmapped"
+      if (!gsGroups[paper]) gsGroups[paper] = []
+      gsGroups[paper].push(story)
+    }
+    return {
+      stories: mappedStories,
+      gs_groups: gsGroups,
+      total_count: data.total_count || mappedStories.length,
+      has_exam_playbook: data.has_exam_playbook || 0,
+    }
+  } catch (err) {
+    console.error("Failed to fetch UPSC stories:", err)
+    return { stories: [], gs_groups: {}, total_count: 0, has_exam_playbook: 0 }
+  }
 }
 
 export async function downloadMarkdown(): Promise<void> {

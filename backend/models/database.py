@@ -208,6 +208,12 @@ def save_stories(stories_data: list[dict], db: Session | None = None) -> None:
                 sector_summary=s.get("sector_summary"),
                 trending_score=s.get("trending_score"),
                 image_url=s.get("image_url"),
+                relevance_score=s.get("relevance_score"),
+                priority_score=s.get("priority_score"),
+                novelty_score=s.get("novelty_score"),
+                gs_paper=s.get("gs_paper"),
+                subtopics=json.dumps(s.get("subtopics", [])) if s.get("subtopics") else None,
+                exam_playbook=json.dumps(s.get("exam_playbook")) if s.get("exam_playbook") else None,
             )
             db.add(new_story)
         if own_session:
@@ -233,6 +239,13 @@ def get_top_stories(limit: int = 10) -> list[dict]:
             except (json.JSONDecodeError, TypeError):
                 sectors = ["General"]
 
+            upsc_playbook = None
+            if s.exam_playbook:
+                try:
+                    upsc_playbook = json.loads(s.exam_playbook)
+                except (json.JSONDecodeError, TypeError):
+                    upsc_playbook = None
+
             results.append({
                 "title": s.title,
                 "summary": s.summary,
@@ -248,6 +261,75 @@ def get_top_stories(limit: int = 10) -> list[dict]:
                 "sector_summary": s.sector_summary,
                 "trending_score": s.trending_score,
                 "image_url": s.image_url,
+                "relevance_score": s.relevance_score,
+                "priority_score": s.priority_score,
+                "novelty_score": s.novelty_score,
+                "gs_paper": s.gs_paper,
+                "subtopics": json.loads(s.subtopics) if s.subtopics else [],
+                "exam_playbook": upsc_playbook,
+            })
+        return results
+    finally:
+        db.close()
+
+
+def get_upsc_stories(limit: int = 50, min_relevance: float = 0.0) -> list[dict]:
+    """Get stories ordered by UPSC priority score, filtered by minimum relevance."""
+    from .models import Summary
+    from sqlalchemy import or_
+    db = SessionLocal()
+    try:
+        query = db.query(Summary)
+        # Filter by relevance if threshold is set
+        if min_relevance > 0:
+            query = query.filter(
+                or_(
+                    Summary.relevance_score >= min_relevance,
+                    Summary.relevance_score.is_(None)
+                )
+            )
+        # Order by priority_score desc, then relevance_score desc, then original score
+        stories = query.order_by(
+            desc(Summary.priority_score).nulls_last(),
+            desc(Summary.relevance_score).nulls_last(),
+            desc(Summary.score)
+        ).limit(limit).all()
+
+        results = []
+        for s in stories:
+            try:
+                sectors = json.loads(s.sectors) if s.sectors else ["General"]
+            except (json.JSONDecodeError, TypeError):
+                sectors = ["General"]
+
+            upsc_playbook = None
+            if s.exam_playbook:
+                try:
+                    upsc_playbook = json.loads(s.exam_playbook)
+                except (json.JSONDecodeError, TypeError):
+                    upsc_playbook = None
+
+            results.append({
+                "title": s.title,
+                "summary": s.summary,
+                "why_it_matters": s.why_it_matters,
+                "url": s.url,
+                "score": s.score,
+                "article_count": s.article_count,
+                "source": s.source.split(",") if s.source else [],
+                "published_at": s.published_at,
+                "latest_at": s.latest_at,
+                "created_at": s.created_at,
+                "sectors": sectors,
+                "sector_summary": s.sector_summary,
+                "trending_score": s.trending_score,
+                "image_url": s.image_url,
+                "relevance_score": s.relevance_score,
+                "priority_score": s.priority_score,
+                "novelty_score": s.novelty_score,
+                "gs_paper": s.gs_paper,
+                "subtopics": json.loads(s.subtopics) if s.subtopics else [],
+                "exam_playbook": upsc_playbook,
             })
         return results
     finally:

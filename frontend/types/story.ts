@@ -10,6 +10,41 @@ export interface Story {
   sector_summary?: string
   trending_score?: number
   image_url?: string
+  // UPSC fields
+  relevance_score?: number
+  priority_score?: number
+  novelty_score?: number
+  gs_paper?: string
+  subtopics?: string[]
+  exam_playbook?: ExamPlaybook | null
+}
+
+export interface ExamPlaybook {
+  is_relevant: boolean
+  relevance_score: number
+  gs_paper: string
+  subtopics: string[]
+  prelims_angle: string
+  mains_angle: string
+  probable_question: string
+  static_connect: string
+  key_terms: string[]
+  one_line_takeaway: string
+}
+
+export interface UPSCStory extends Story {
+  relevance_score: number
+  priority_score: number
+  gs_paper: string
+  subtopics: string[]
+  exam_playbook?: ExamPlaybook | null
+}
+
+export interface UPSCResponse {
+  stories: UPSCStory[]
+  gs_groups: Record<string, UPSCStory[]>
+  total_count: number
+  has_exam_playbook: number
 }
 
 export interface MarketDataPoint {

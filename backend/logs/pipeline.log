@@ -1214,3 +1214,206 @@ NameError: name 'last_updated' is not defined
 2026-05-15 03:31:13 | INFO     | main | Database initialized.
 2026-05-15 03:31:13 | INFO     | main | Initializing database...
 2026-05-15 03:31:13 | INFO     | main | Database initialized.
+2026-05-17 10:18:05 | INFO     | main | Initializing database...
+2026-05-17 10:18:05 | INFO     | main | Database initialized.
+2026-05-17 10:18:05 | INFO     | scheduler | Scheduler started — pipeline runs every 6 hours
+2026-05-17 10:18:05 | INFO     | scheduler | === Pipeline start ===
+2026-05-17 10:18:05 | INFO     | scheduler | Fetching articles...
+2026-05-17 10:18:05 | INFO     | main | Startup pipeline triggered in background thread
+2026-05-17 10:18:15 | INFO     | scheduler | Fetched 2222 articles
+2026-05-17 10:18:15 | INFO     | scheduler | Cleaned 2222 articles
+2026-05-17 10:18:16 | INFO     | scheduler | Inserted 3 new articles
+2026-05-17 10:18:16 | INFO     | scheduler | Processing 2222 articles for clustering
+2026-05-17 10:18:16 | INFO     | scheduler | Limiting to 1000 articles for clustering (had 2222)
+2026-05-17 10:18:21 | INFO     | scheduler | Created 395 clusters
+2026-05-17 10:18:21 | INFO     | scheduler | Cluster sizes: min=1 max=517 avg=2.5
+2026-05-17 10:18:21 | INFO     | scheduler | Ranked 80 stories
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 0: relevance=0.32, priority=0.19, gs_paper=GS2
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 1: relevance=0.24, priority=0.15, gs_paper=GS2
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 2: relevance=0.31, priority=0.18, gs_paper=GS3
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 3: relevance=0.28, priority=0.17, gs_paper=Prelims
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 4: relevance=0.34, priority=0.20, gs_paper=Prelims
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 5: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 6: relevance=0.35, priority=0.21, gs_paper=GS2
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 7: relevance=0.26, priority=0.15, gs_paper=GS3
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 8: relevance=0.34, priority=0.20, gs_paper=GS1
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 9: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 10: relevance=0.00, priority=0.00, gs_paper=Unknown
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 11: relevance=0.39, priority=0.23, gs_paper=GS1
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 12: relevance=0.36, priority=0.22, gs_paper=GS3
+2026-05-17 10:18:21 | INFO     | scheduler | [UPSC] Story 13: relevance=0.27, priority=0.16, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 14: relevance=0.28, priority=0.17, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 15: relevance=0.40, priority=0.24, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 16: relevance=0.56, priority=0.34, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 17: relevance=0.28, priority=0.17, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 18: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 19: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 20: relevance=0.26, priority=0.15, gs_paper=GS4
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 21: relevance=0.51, priority=0.30, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 22: relevance=0.26, priority=0.15, gs_paper=GS4
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 23: relevance=0.31, priority=0.19, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 24: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 25: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 26: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 27: relevance=0.39, priority=0.23, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 28: relevance=0.32, priority=0.19, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 29: relevance=0.27, priority=0.16, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 30: relevance=0.29, priority=0.18, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 31: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 32: relevance=0.25, priority=0.15, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 33: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 34: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 35: relevance=0.29, priority=0.17, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 36: relevance=0.33, priority=0.20, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 37: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 38: relevance=0.25, priority=0.15, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 39: relevance=0.28, priority=0.17, gs_paper=GS4
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 40: relevance=0.26, priority=0.16, gs_paper=GS4
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 41: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 42: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 43: relevance=0.42, priority=0.25, gs_paper=GS4
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 44: relevance=0.27, priority=0.16, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 45: relevance=0.29, priority=0.18, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 46: relevance=0.33, priority=0.20, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 47: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 48: relevance=0.27, priority=0.16, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 49: relevance=0.43, priority=0.29, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 50: relevance=0.34, priority=0.20, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 51: relevance=0.29, priority=0.18, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 52: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 53: relevance=0.38, priority=0.23, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 54: relevance=0.26, priority=0.15, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 55: relevance=0.27, priority=0.16, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 56: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 57: relevance=0.37, priority=0.22, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 58: relevance=0.32, priority=0.19, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 59: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 60: relevance=0.24, priority=0.15, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 61: relevance=0.46, priority=0.31, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 62: relevance=0.27, priority=0.16, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 63: relevance=0.31, priority=0.19, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 64: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 65: relevance=0.29, priority=0.18, gs_paper=GS3
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 66: relevance=0.28, priority=0.17, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 67: relevance=0.28, priority=0.17, gs_paper=GS2
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 68: relevance=0.42, priority=0.28, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 69: relevance=0.27, priority=0.16, gs_paper=Prelims
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 70: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:18:22 | INFO     | scheduler | [UPSC] Story 71: relevance=0.32, priority=0.19, gs_paper=GS1
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 72: relevance=0.38, priority=0.23, gs_paper=GS1
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 73: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 74: relevance=0.30, priority=0.18, gs_paper=Prelims
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 75: relevance=0.00, priority=0.00, gs_paper=Unknown
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 76: relevance=0.28, priority=0.17, gs_paper=GS4
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 77: relevance=0.28, priority=0.17, gs_paper=Prelims
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 78: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:18:23 | INFO     | scheduler | [UPSC] Story 79: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:18:23 | INFO     | scheduler | UPSC filter: kept 27 stories, filtered out 53 low-relevance stories
+2026-05-17 10:18:23 | INFO     | scheduler | Saving 27 stories...
+2026-05-17 10:18:23 | INFO     | scheduler | Saved 27 stories
+2026-05-17 10:18:23 | INFO     | scheduler | Briefing generated
+2026-05-17 10:18:25 | INFO     | scheduler | Fetched 34 market data points
+2026-05-17 10:18:25 | INFO     | scheduler | === Pipeline complete in 19.5s ===
+2026-05-17 10:20:34 | INFO     | main | Initializing database...
+2026-05-17 10:20:34 | INFO     | main | Database initialized.
+2026-05-17 10:20:34 | INFO     | scheduler | Scheduler started — pipeline runs every 6 hours
+2026-05-17 10:20:34 | INFO     | scheduler | === Pipeline start ===
+2026-05-17 10:20:34 | INFO     | scheduler | Fetching articles...
+2026-05-17 10:20:34 | INFO     | main | Startup pipeline triggered in background thread
+2026-05-17 10:21:03 | INFO     | scheduler | Fetched 2224 articles
+2026-05-17 10:21:03 | INFO     | scheduler | Cleaned 2224 articles
+2026-05-17 10:21:04 | INFO     | scheduler | Inserted 5 new articles
+2026-05-17 10:21:04 | INFO     | scheduler | Processing 2224 articles for clustering
+2026-05-17 10:21:04 | INFO     | scheduler | Limiting to 1000 articles for clustering (had 2224)
+2026-05-17 10:21:09 | INFO     | scheduler | Created 687 clusters
+2026-05-17 10:21:09 | INFO     | scheduler | Cluster sizes: min=1 max=126 avg=1.4
+2026-05-17 10:21:09 | INFO     | scheduler | Ranked 80 stories
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 0: relevance=0.38, priority=0.26, gs_paper=GS1
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 1: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 2: relevance=0.75, priority=0.48, gs_paper=GS2
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 3: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 4: relevance=0.24, priority=0.14, gs_paper=GS2
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 5: relevance=0.31, priority=0.18, gs_paper=GS3
+2026-05-17 10:21:09 | INFO     | scheduler | [UPSC] Story 6: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 7: relevance=0.24, priority=0.14, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 8: relevance=0.31, priority=0.19, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 9: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 10: relevance=0.28, priority=0.17, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 11: relevance=0.25, priority=0.15, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 12: relevance=0.34, priority=0.20, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 13: relevance=0.24, priority=0.14, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 14: relevance=0.28, priority=0.17, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 15: relevance=0.35, priority=0.21, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 16: relevance=0.28, priority=0.17, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 17: relevance=0.32, priority=0.19, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 18: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 19: relevance=0.26, priority=0.15, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 20: relevance=0.31, priority=0.19, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 21: relevance=0.28, priority=0.17, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 22: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 23: relevance=0.00, priority=0.00, gs_paper=Unknown
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 24: relevance=0.26, priority=0.16, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 25: relevance=0.39, priority=0.23, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 26: relevance=0.36, priority=0.22, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 27: relevance=0.25, priority=0.15, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 28: relevance=0.27, priority=0.16, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 29: relevance=0.32, priority=0.19, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 30: relevance=0.28, priority=0.17, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 31: relevance=0.40, priority=0.24, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 32: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 33: relevance=0.31, priority=0.19, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 34: relevance=0.30, priority=0.18, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 35: relevance=0.27, priority=0.16, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 36: relevance=0.28, priority=0.17, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 37: relevance=0.37, priority=0.22, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 38: relevance=0.30, priority=0.18, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 39: relevance=0.25, priority=0.15, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 40: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 41: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 42: relevance=0.27, priority=0.16, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 43: relevance=0.22, priority=0.13, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 44: relevance=0.26, priority=0.15, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 45: relevance=0.26, priority=0.15, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 46: relevance=0.31, priority=0.19, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 47: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 48: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 49: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 50: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 51: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 52: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 53: relevance=0.28, priority=0.17, gs_paper=GS2
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 54: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 55: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 56: relevance=0.25, priority=0.15, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 57: relevance=0.27, priority=0.16, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 58: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 59: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 60: relevance=0.33, priority=0.20, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 61: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 62: relevance=0.29, priority=0.18, gs_paper=GS3
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 63: relevance=0.27, priority=0.16, gs_paper=GS4
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 64: relevance=0.29, priority=0.17, gs_paper=GS1
+2026-05-17 10:21:10 | INFO     | scheduler | [UPSC] Story 65: relevance=0.68, priority=0.41, gs_paper=GS1
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 66: relevance=0.25, priority=0.15, gs_paper=GS3
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 67: relevance=0.30, priority=0.18, gs_paper=GS2
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 68: relevance=0.26, priority=0.16, gs_paper=GS1
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 69: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 70: relevance=0.25, priority=0.15, gs_paper=GS1
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 71: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 72: relevance=0.26, priority=0.15, gs_paper=GS3
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 73: relevance=0.33, priority=0.20, gs_paper=GS4
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 74: relevance=0.24, priority=0.15, gs_paper=GS4
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 75: relevance=0.33, priority=0.20, gs_paper=Prelims
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 76: relevance=0.24, priority=0.14, gs_paper=GS2
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 77: relevance=0.15, priority=0.09, gs_paper=Prelims
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 78: relevance=0.34, priority=0.20, gs_paper=GS1
+2026-05-17 10:21:11 | INFO     | scheduler | [UPSC] Story 79: relevance=0.35, priority=0.21, gs_paper=GS3
+2026-05-17 10:21:11 | INFO     | scheduler | UPSC filter: kept 22 stories, filtered out 58 low-relevance stories
+2026-05-17 10:21:11 | INFO     | scheduler | [GEMINI] Generated exam playbook for: oil prices rise as trump-xi summit yields no clear breakthro
+2026-05-17 10:21:11 | INFO     | scheduler | Saving 22 stories...
+2026-05-17 10:21:11 | INFO     | scheduler | Saved 22 stories
+2026-05-17 10:21:11 | INFO     | scheduler | Briefing generated
+2026-05-17 10:21:14 | INFO     | scheduler | Fetched 34 market data points
+2026-05-17 10:21:14 | INFO     | scheduler | === Pipeline complete in 40.0s ===
+2026-05-17 10:21:22 | INFO     | main | Initializing database...
+2026-05-17 10:21:22 | INFO     | main | Database initialized.

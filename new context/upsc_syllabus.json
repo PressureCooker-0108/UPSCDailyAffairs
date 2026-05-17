@@ -1,0 +1,524 @@
+{
+  "exam": "UPSC Civil Services Examination (CSE)",
+  "conducting_body": "Union Public Service Commission",
+  "stages": {
+    "prelims": {
+      "name": "Preliminary Examination",
+      "purpose": "Screening test only. Marks do NOT count toward final rank.",
+      "papers": {
+        "GS_Paper1": {
+          "name": "General Studies Paper I",
+          "marks": 200,
+          "questions": 100,
+          "negative_marking": true,
+          "penalty": "1/3rd mark deducted per wrong answer",
+          "topics": {
+            "Current_Affairs": [
+              "National and international events of significance",
+              "Government schemes and policies",
+              "Awards, books, persons in news",
+              "Sports events of national/international importance"
+            ],
+            "History": [
+              "Ancient Indian history",
+              "Medieval Indian history",
+              "Modern Indian history (mid-18th century onwards)",
+              "Indian National Movement",
+              "Post-independence India"
+            ],
+            "Geography": [
+              "Physical geography of India",
+              "Indian rivers, lakes, mountains",
+              "World physical geography",
+              "Climate, soil types, natural vegetation",
+              "Economic geography — minerals, industries, agriculture",
+              "Important geophysical phenomena — earthquakes, tsunamis, cyclones"
+            ],
+            "Indian_Polity_and_Governance": [
+              "Constitution of India — features, amendments",
+              "Fundamental Rights, DPSPs, Fundamental Duties",
+              "Parliament and State Legislatures",
+              "President, Prime Minister, Council of Ministers",
+              "Supreme Court, High Courts",
+              "Elections, ECI",
+              "Panchayati Raj and local governance",
+              "Government schemes and policies"
+            ],
+            "Economy": [
+              "Indian economy — planning, growth, development",
+              "Budget concepts — fiscal deficit, revenue deficit",
+              "Banking and financial system — RBI, SEBI",
+              "Inflation, monetary and fiscal policy",
+              "International trade and organisations — WTO, IMF, World Bank",
+              "Agriculture — MSP, APMC, food security",
+              "Infrastructure development"
+            ],
+            "Environment_and_Ecology": [
+              "Biodiversity — species, habitats, conservation",
+              "National Parks, Wildlife Sanctuaries, Biosphere Reserves",
+              "Environmental laws and conventions — Paris Agreement, CITES, Ramsar",
+              "Climate change — causes, effects, India's response",
+              "Pollution types and control",
+              "Environmental impact assessment"
+            ],
+            "General_Science": [
+              "Physics — basic principles relevant to everyday life",
+              "Chemistry — basic chemistry, common substances",
+              "Biology — human body, diseases, nutrition",
+              "Space technology — ISRO missions",
+              "Defence technology",
+              "IT and computers — basics"
+            ]
+          }
+        },
+        "CSAT_Paper2": {
+          "name": "Civil Services Aptitude Test (CSAT)",
+          "marks": 200,
+          "questions": 80,
+          "qualifying_marks": "33% (66 marks) — qualifying only, not counted for merit",
+          "topics": [
+            "Reading comprehension",
+            "Interpersonal skills including communication skills",
+            "Logical reasoning and analytical ability",
+            "Decision making and problem solving",
+            "General mental ability",
+            "Basic numeracy — numbers, magnitudes, percentages",
+            "Data interpretation — charts, graphs, tables"
+          ]
+        }
+      }
+    },
+    "mains": {
+      "name": "Main Examination",
+      "purpose": "Primary merit stage. Marks count toward final rank.",
+      "total_merit_marks": 1750,
+      "papers": {
+        "Essay": {
+          "paper_number": "Paper I",
+          "marks": 250,
+          "duration_hours": 3,
+          "counts_for_merit": true,
+          "description": "Candidates must write essays on multiple topics. Expected to keep close to the subject, to arrange ideas in orderly fashion, and to write concisely. Credit given for effective and exact expression.",
+          "common_themes": [
+            "Philosophy and society",
+            "Ethics and values in public life",
+            "Science, technology and society",
+            "Development and environment",
+            "Democracy, governance, rights",
+            "Culture, civilization and identity",
+            "International relations and geopolitics",
+            "Women, marginalized groups and empowerment"
+          ]
+        },
+        "GS1": {
+          "paper_number": "Paper II",
+          "name": "General Studies I",
+          "full_name": "Indian Heritage and Culture, History and Geography of the World and Society",
+          "marks": 250,
+          "duration_hours": 3,
+          "counts_for_merit": true,
+          "topics": {
+            "Indian_Heritage_and_Culture": {
+              "weightage": "high",
+              "subtopics": [
+                "Salient aspects of Indian art forms from ancient to modern times",
+                "Classical and folk dance forms",
+                "Classical and folk music traditions",
+                "Temple architecture — Nagara, Dravida, Vesara styles",
+                "Sculpture — Mauryan, Gupta, Chola periods",
+                "Painting traditions — Mughal, Rajput, Pahari, Madhubani",
+                "Literature — Sanskrit, Tamil Sangam, medieval Bhakti",
+                "Languages and scripts of India",
+                "Philosophical schools — Advaita, Dvaita, Buddhism, Jainism",
+                "UNESCO World Heritage Sites in India",
+                "Intangible cultural heritage"
+              ]
+            },
+            "Modern_Indian_History": {
+              "weightage": "high",
+              "subtopics": [
+                "Significant events from mid-18th century to present",
+                "Rise and growth of Indian nationalism",
+                "Indian National Congress and its phases",
+                "Gandhian movements — Non-Cooperation, Civil Disobedience, Quit India",
+                "Revolutionary movements — Bhagat Singh, INA",
+                "Partition of Bengal and anti-partition movement",
+                "Constitutional developments under British rule",
+                "Role of women in freedom struggle",
+                "Peasant and tribal revolts",
+                "Contribution of regional leaders"
+              ]
+            },
+            "Post_Independence_Consolidation": {
+              "weightage": "medium",
+              "subtopics": [
+                "Integration of princely states",
+                "Reorganisation of states on linguistic basis",
+                "Five Year Plans and economic model",
+                "India's foreign policy evolution",
+                "Major political events post-1947"
+              ]
+            },
+            "World_History": {
+              "weightage": "medium",
+              "subtopics": [
+                "French Revolution",
+                "American Revolution and US Constitution",
+                "Industrial Revolution and its impact",
+                "World Wars I and II — causes, effects",
+                "Cold War — bipolarity, proxy wars",
+                "Decolonisation of Africa and Asia",
+                "Russian Revolution and communism",
+                "Chinese Revolution",
+                "United Nations formation and evolution",
+                "Redrawal of world map post-Cold War"
+              ]
+            },
+            "Indian_Society": {
+              "weightage": "high",
+              "subtopics": [
+                "Salient features of Indian society and its diversity",
+                "Role of women and women's organisations",
+                "Population and associated issues",
+                "Poverty and developmental issues",
+                "Urbanisation — problems and remedies",
+                "Effects of globalisation on Indian society",
+                "Social empowerment — caste, communalism, regionalism, secularism",
+                "Tribal issues and concerns",
+                "Migration and its impact"
+              ]
+            },
+            "Geography": {
+              "weightage": "high",
+              "subtopics": [
+                "Physical geography — geomorphology, climatology, oceanography",
+                "Distribution of key natural resources across the world",
+                "Factors responsible for location of industries",
+                "Earthquake, tsunami, cyclone distribution",
+                "Physical geography of India — mountains, rivers, plains, coasts",
+                "Monsoon, climate types of India",
+                "Important geophysical phenomena",
+                "Human geography — population distribution, migration patterns"
+              ]
+            }
+          }
+        },
+        "GS2": {
+          "paper_number": "Paper III",
+          "name": "General Studies II",
+          "full_name": "Governance, Constitution, Polity, Social Justice and International Relations",
+          "marks": 250,
+          "duration_hours": 3,
+          "counts_for_merit": true,
+          "topics": {
+            "Indian_Constitution_and_Polity": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Historical underpinnings and evolution of the Constitution",
+                "Salient features, significant provisions, Basic Structure doctrine",
+                "Fundamental Rights, Directive Principles, Fundamental Duties",
+                "Parliament — structure, functioning, committees",
+                "State legislatures",
+                "President, Vice President, PM, Cabinet",
+                "Governors, Chief Ministers",
+                "Supreme Court, High Courts, Tribunals",
+                "Federal structure — centre-state relations",
+                "Devolution of powers — Panchayati Raj, urban local bodies",
+                "Separation of powers",
+                "Appointment to constitutional bodies",
+                "Statutory and quasi-judicial bodies — NHRC, CIC, CAG, CVC, CBI"
+              ]
+            },
+            "Governance": {
+              "weightage": "high",
+              "subtopics": [
+                "Good governance — transparency, accountability",
+                "E-governance — applications, models, successes, limitations",
+                "Citizens charters, transparency and accountability",
+                "RTI Act",
+                "Role of civil services in democracy",
+                "Government policies and interventions in various sectors",
+                "Development processes — NGOs, SHGs, cooperative societies"
+              ]
+            },
+            "Social_Justice": {
+              "weightage": "high",
+              "subtopics": [
+                "Welfare schemes for vulnerable sections",
+                "Education sector — schools, higher education",
+                "Health sector — NHM, PMJAY, nutrition",
+                "Poverty alleviation schemes — MGNREGA, PM-KISAN",
+                "Housing — PMAY",
+                "Food security — PDS, National Food Security Act",
+                "Issues relating to SC, ST, OBC",
+                "Issues relating to women, children",
+                "Issues relating to elderly, persons with disabilities",
+                "Social sector initiatives and their impact"
+              ]
+            },
+            "International_Relations": {
+              "weightage": "very_high",
+              "subtopics": [
+                "India's foreign policy — principles and evolution",
+                "India's relations with neighbours — Pakistan, China, Bangladesh, Nepal, Sri Lanka, Myanmar",
+                "India's relations with major powers — USA, Russia, EU, Japan",
+                "India and the global south — Africa, ASEAN, LAC",
+                "Regional groupings — SAARC, BIMSTEC, SCO, G20, BRICS",
+                "International organisations — UN, WTO, IMF, World Bank, WHO",
+                "Diaspora and its contribution to India",
+                "Effect of foreign country policies on India's interests",
+                "Indian Ocean Region — strategic importance"
+              ]
+            }
+          }
+        },
+        "GS3": {
+          "paper_number": "Paper IV",
+          "name": "General Studies III",
+          "full_name": "Technology, Economic Development, Bio-diversity, Environment, Security and Disaster Management",
+          "marks": 250,
+          "duration_hours": 3,
+          "counts_for_merit": true,
+          "topics": {
+            "Indian_Economy": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Economic planning — five year plans, NITI Aayog",
+                "Inclusive growth — concepts, indicators, issues",
+                "Government budgeting — fiscal policy, FRBM",
+                "Major crops, cropping patterns, irrigation",
+                "Agricultural subsidies — MSP, food security",
+                "Land reforms in India",
+                "Economics of animal rearing and food processing",
+                "Food processing industry",
+                "Liberalisation, privatisation, globalisation — 1991 and after",
+                "Infrastructure — energy, roads, ports, airports",
+                "Investment models — PPP, FDI, FPI",
+                "Capital market — SEBI, bonds, mutual funds",
+                "Banking sector — NPAs, reforms, RBI monetary policy",
+                "External sector — balance of payments, exchange rate",
+                "Inflation — types, causes, measures"
+              ]
+            },
+            "Agriculture": {
+              "weightage": "high",
+              "subtopics": [
+                "Agricultural produce and marketing",
+                "APMC reforms",
+                "e-NAM and agricultural market reforms",
+                "Cooperatives in agriculture — AMUL model",
+                "Farmer distress — causes, solutions",
+                "Organic farming, natural farming",
+                "New agricultural technologies — precision farming, drones",
+                "Contract farming"
+              ]
+            },
+            "Science_and_Technology": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Developments and their applications and effects in everyday life",
+                "Achievements of Indians in science and technology",
+                "Indigenisation of technology and developing new technology",
+                "Space technology — ISRO, recent missions, applications",
+                "Nuclear technology — civilian use, India's nuclear policy",
+                "Biotechnology — GMOs, gene editing, CRISPR",
+                "Artificial intelligence and machine learning",
+                "Semiconductors and electronics",
+                "Defence technology — missiles, drones, cyber warfare",
+                "Cyber security — threats, policies",
+                "5G and telecommunications",
+                "Health technology — drug development, vaccines"
+              ]
+            },
+            "Environment_and_Ecology": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Conservation — biodiversity, forests, wetlands",
+                "Environmental pollution and degradation",
+                "Environmental impact assessment",
+                "Climate change — Paris Agreement, NDCs, COP meetings",
+                "Disaster management — NDMA, SDMA, resilience",
+                "International environmental conventions — CBD, CITES, Ramsar",
+                "Wildlife protection — Project Tiger, Project Elephant",
+                "Sustainable development goals (SDGs)",
+                "Green economy, renewable energy",
+                "Water security — rivers, groundwater, management"
+              ]
+            },
+            "Internal_Security": {
+              "weightage": "high",
+              "subtopics": [
+                "Challenges to internal security — terrorism, naxalism, insurgency",
+                "Role of external state and non-state actors",
+                "Communication networks and role in internal security",
+                "Basics of cybersecurity — threats and responses",
+                "Money laundering and its prevention",
+                "Border management — India's challenges",
+                "Organised crime linkage to terrorism",
+                "Security forces — CRPF, BSF, NSG, RAW",
+                "Left wing extremism — causes and counter-strategies"
+              ]
+            },
+            "Disaster_Management": {
+              "weightage": "medium",
+              "subtopics": [
+                "Disaster management cycle — prevention, mitigation, preparedness, response",
+                "NDMA — structure, guidelines",
+                "Vulnerability profile of India",
+                "Flood, drought, earthquake, cyclone management",
+                "Role of NGOs and community in disaster management",
+                "International cooperation in disaster management"
+              ]
+            }
+          }
+        },
+        "GS4": {
+          "paper_number": "Paper V",
+          "name": "General Studies IV",
+          "full_name": "Ethics, Integrity and Aptitude",
+          "marks": 250,
+          "duration_hours": 3,
+          "counts_for_merit": true,
+          "note": "This paper tests attitude and approach, not just knowledge. Current affairs connect through ethical dilemmas and case studies.",
+          "topics": {
+            "Ethics_and_Human_Interface": {
+              "weightage": "high",
+              "subtopics": [
+                "Essence, determinants and consequences of ethics in human actions",
+                "Dimensions of ethics",
+                "Ethics in private and public relationships",
+                "Human values — lessons from lives of great leaders, reformers, administrators",
+                "Role of family, society and educational institutions in inculcating values"
+              ]
+            },
+            "Attitude": {
+              "weightage": "medium",
+              "subtopics": [
+                "Content, structure, function",
+                "Influence and relation with thought and behaviour",
+                "Moral and political attitudes",
+                "Social influence and persuasion"
+              ]
+            },
+            "Aptitude_and_Foundational_Values_for_Civil_Services": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Integrity, impartiality, non-partisanship",
+                "Objectivity, dedication to public service",
+                "Empathy, tolerance and compassion towards the weaker sections",
+                "Emotional intelligence — concepts, applications"
+              ]
+            },
+            "Ethical_Issues_in_Public_Administration": {
+              "weightage": "high",
+              "subtopics": [
+                "Status and problems",
+                "Ethical concerns and dilemmas in government",
+                "Laws, rules, regulations and conscience as sources of ethical guidance",
+                "Accountability and ethical governance",
+                "Strengthening of ethical and moral values in governance",
+                "Ethical issues in international relations and funding",
+                "Corporate governance"
+              ]
+            },
+            "Probity_in_Governance": {
+              "weightage": "high",
+              "subtopics": [
+                "Concept of public service",
+                "Philosophical basis of governance and probity",
+                "Information sharing and transparency in government",
+                "Right to information",
+                "Codes of ethics",
+                "Work culture",
+                "Quality of service delivery",
+                "Utilisation of public funds",
+                "Challenges of corruption"
+              ]
+            },
+            "Case_Studies": {
+              "weightage": "very_high",
+              "subtopics": [
+                "Ethical dilemmas faced by civil servants",
+                "Conflict between rules and conscience",
+                "Whistleblowing situations",
+                "Corruption and ethical response",
+                "Disaster/crisis management ethics",
+                "Welfare of marginalised vs procedural compliance"
+              ]
+            }
+          }
+        },
+        "Language_Papers": {
+          "Paper_A": {
+            "name": "Indian Language (Compulsory)",
+            "marks": 300,
+            "qualifying_marks": "25% (75 marks)",
+            "counts_for_merit": false,
+            "description": "Any one of the 22 languages in the 8th Schedule. Tests reading, comprehension, essay writing, and translation."
+          },
+          "Paper_B": {
+            "name": "English (Compulsory)",
+            "marks": 300,
+            "qualifying_marks": "25% (75 marks)",
+            "counts_for_merit": false,
+            "description": "Tests English comprehension, précis writing, essay, and translation from Indian language to English."
+          }
+        }
+      }
+    },
+    "interview": {
+      "name": "Personality Test / Interview",
+      "marks": 275,
+      "counts_for_merit": true,
+      "description": "Tests mental calibre, intellectual depth, social traits, integrity. Based on detailed application form (DAF). No specific syllabus — current affairs, your work/academic background, situational questions."
+    }
+  },
+  "final_merit": {
+    "components": {
+      "mains": 1750,
+      "interview": 275
+    },
+    "total": 2025,
+    "note": "Prelims marks are NOT included in final merit calculation."
+  },
+  "high_current_affairs_topics": {
+    "description": "Topics that consistently appear in UPSC and connect most frequently to daily news. Use these for news-to-syllabus mapping.",
+    "topics": [
+      "RBI monetary policy and banking reforms",
+      "Budget, fiscal policy, GST",
+      "India-China relations, border disputes",
+      "India-Pakistan relations, terrorism",
+      "Climate change, COP, NDCs, renewable energy",
+      "ISRO missions, space technology",
+      "Constitutional amendments, Supreme Court judgements",
+      "Parliament sessions, bills passed",
+      "Social welfare schemes — launches and reforms",
+      "Agriculture — MSP, farm laws, food security",
+      "Internal security — naxalism, J&K, northeast",
+      "International organisations — UN, WTO, G20, BRICS, SCO",
+      "India's foreign policy — neighbourhood first",
+      "Science and tech — AI, semiconductor, defence",
+      "Health — NHM, disease outbreaks, drug policy",
+      "Environment — biodiversity, pollution, wetlands",
+      "Governance — RTI, e-governance, CAG reports",
+      "Ethics — scams, whistleblowers, governance failures",
+      "Women and child welfare — schemes, crimes, legislation",
+      "Tribal rights — forest rights, displacement, Adivasi issues"
+    ]
+  },
+  "news_relevance_scoring": {
+    "description": "How to score a news article's UPSC relevance. Used to filter out non-relevant news.",
+    "criteria": [
+      "Does it involve Indian government policy or legislation?",
+      "Does it involve India's foreign relations?",
+      "Does it have economic implications for India?",
+      "Does it involve environment, climate, or disaster?",
+      "Does it involve science/tech with Indian context?",
+      "Does it involve social justice, welfare, or marginalized groups?",
+      "Does it involve constitutional or legal developments?",
+      "Does it involve internal security or border issues?",
+      "Is there a previous year UPSC question on a related topic?"
+    ],
+    "threshold": "If article scores YES on 2 or more criteria, it is UPSC-relevant."
+  }
+}

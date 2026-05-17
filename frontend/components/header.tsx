@@ -2,11 +2,19 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, FileText, Download, Globe, FileDown, Sun, Moon, Timer } from "lucide-react"
+import { RefreshCw, FileText, Download, Globe, FileDown, Sun, Moon, Timer, GraduationCap } from "lucide-react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 import { downloadMarkdown, downloadJson, downloadPdf } from "@/lib/api"
+
+const GS_COLORS: Record<string, string> = {
+  "GS Paper I": "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  "GS Paper II": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  "GS Paper III": "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  "GS Paper IV": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  "Prelims": "bg-rose-500/10 text-rose-400 border-rose-500/20",
+}
 
 export function Header() {
   const [refreshing, setRefreshing] = useState(false)
@@ -65,6 +73,23 @@ export function Header() {
               </p>
             </div>
           </Link>
+
+          {/* Center: Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
+            <Link
+              href="/"
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href="/upsc"
+              className="px-3 py-1.5 rounded-md text-xs font-medium text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors flex items-center gap-1.5"
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+              UPSC
+            </Link>
+          </nav>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-1.5">

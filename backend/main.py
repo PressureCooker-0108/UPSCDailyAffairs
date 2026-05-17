@@ -16,7 +16,7 @@ from models.database import (
     init_db, get_top_stories,
     get_stories_by_sector, get_market_data, get_latest_briefing,
     get_source_diversity, get_trending_topics, get_sector_summaries,
-    last_updated
+    get_upsc_stories, last_updated
 )
 from scheduler import run_pipeline, start_scheduler
 from services.market_data import fetch_and_store_market_data, get_big_market_movers
@@ -576,6 +576,41 @@ def db_status():
         return {"error": str(e)}
 
 # ── Main ──
+
+
+# ── UPSC Intelligence Endpoint ──
+
+@app.get("/upsc")
+def get_upsc(
+    limit: int = Query(50, ge=1, le=200),
+    min_relevance: float = Query(0.0, ge=0.0, le=1.0, description="Minimum relevance score filter")
+):
+    """Get UPSC-filtered stories with exam intelligence.
+
+    Returns stories ordered by UPSC priority score, with:
+    - Syllabus mappings (GS paper, subtopics)
+    - Relevance, priority, and novelty scores
+    - Exam playbook with prelims/mains angles and probable questions
+    """
+    try:
+        stories = get_upsc_stories(limit=limit, min_relevance=min_relevance)
+
+        # Group by GS paper for convenience
+        gs_groups: dict[str, list[dict]] = {}
+        for s in stories:
+            paper = s.get("gs_paper", "Unmapped")
+            gs_groups.setdefault(paper, []).append(s)
+
+        return {
+            "stories": stories,
+            "gs_groups": gs_groups,
+            "total_count": len(stories),
+            "has_exam_playbook": sum(1 for s in stories if s.get("exam_playbook")),
+        }
+    except Exception as e:
+        logger.exception(f"Failed to fetch UPSC stories: {e}")
+        return {"stories": [], "gs_groups": {}, "total_count": 0, "has_exam_playbook": 0}
+
 
 if __name__ == "__main__":
     import os
