@@ -127,7 +127,10 @@ def run_pipeline() -> None:
                             relevance_score=rel_score,
                         )
                         story["exam_playbook"] = playbook
-                        logger.info(f"[GEMINI] Generated exam playbook for: {story['title'][:60]}")
+                        if playbook:
+                            logger.info(f"[GEMINI] Generated exam playbook for: {story['title'][:60]}")
+                        else:
+                            logger.warning(f"[GEMINI] Failed to generate playbook for: {story['title'][:60]}")
                     except Exception as e:
                         logger.warning(f"[GEMINI] Analysis failed for '{story['title'][:60]}': {e}")
                         story["exam_playbook"] = None
