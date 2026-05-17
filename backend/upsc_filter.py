@@ -22,7 +22,7 @@ Responsibilities:
 """
 
 import json
-import logging
+from loguru import logger
 import os
 import re
 from pathlib import Path
@@ -34,7 +34,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from config import detect_content_type, get_source_metadata
 
-logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
 #  Syllabus Loading & Index Building

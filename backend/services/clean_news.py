@@ -1,7 +1,6 @@
 import re
-import logging
+from loguru import logger
 
-logger = logging.getLogger(__name__)
 
 def clean_text(text: str) -> str:
     """Basic text cleaning."""

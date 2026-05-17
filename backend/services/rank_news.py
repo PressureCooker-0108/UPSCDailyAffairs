@@ -1,75 +1,18 @@
-import logging
+from loguru import logger
 import numpy as np
 from datetime import datetime, timezone
 from dateutil import parser as dateutil_parser
 from config import MAX_STORIES
 
-logger = logging.getLogger(__name__)
-
-# ──────────────────────────────────────────────
-# Source authority weights (legacy fallback)
-# Kept for backward compatibility — new sources
-# use SOURCE_WEIGHTS from config.py
-# ──────────────────────────────────────────────
-SOURCE_AUTHORITY = {
-    "Reuters": 1.0,
-    "Reuters Top News": 1.0,
-    "Reuters Business": 1.0,
-    "Associated Press": 1.0,
-    "BBC": 0.95,
-    "BBC World": 0.85,
-    "BBC General": 0.95,
-    "NYTimes": 0.9,
-    "NYTimes World": 0.9,
-    "NYTimes Home": 0.9,
-    "The Guardian": 0.85,
-    "The Guardian World": 0.82,
-    "Wall Street Journal": 0.95,
-    "WSJ": 0.95,
-    "Financial Times": 0.95,
-    "Economist": 0.9,
-    "The Economist": 0.9,
-    "Foreign Policy": 0.85,
-    "Bloomberg": 0.9,
-    "CNBC": 0.8,
-    "CNBC Top News": 0.8,
-    "NPR": 0.85,
-    "Al Jazeera": 0.78,
-    "DW": 0.8,
-    "The Diplomat": 0.80,
-    "SCMP": 0.7,
-    "The Hindu": 0.90,
-    "The Hindu Editorial": 0.92,
-    "The Hindu International": 0.88,
-    "Indian Express": 0.82,
-    "Indian Express Explained": 0.92,
-    "Times of India": 0.6,
-    "Hindustan Times": 0.75,
-    "LiveMint": 0.78,
-    "Economic Times": 0.80,
-    "Business Standard": 0.74,
-    "Moneycontrol": 0.55,
-    "NDTV": 0.6,
-    "Down To Earth": 0.88,
-    "PIB": 1.0,
-}
 
 
 def _get_source_authority(source_name: str) -> float:
     """Get authority weight for a source.
-
-    Checks SOURCE_WEIGHTS from config first (UPSC sources),
-    then legacy SOURCE_AUTHORITY dict.
-    Defaults to 0.5 for unknown sources.
+    Checks SOURCE_WEIGHTS from config first, defaults to 0.5 for unknown sources.
     """
     from config import SOURCE_WEIGHTS
     if source_name in SOURCE_WEIGHTS:
         return SOURCE_WEIGHTS[source_name]
-    if source_name in SOURCE_AUTHORITY:
-        return SOURCE_AUTHORITY[source_name]
-    for key, weight in SOURCE_AUTHORITY.items():
-        if key.lower() in source_name.lower():
-            return weight
     return 0.5
 
 

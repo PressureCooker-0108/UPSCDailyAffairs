@@ -1,4 +1,4 @@
-import logging
+from loguru import logger
 import numpy as np
 from hdbscan import HDBSCAN
 from sklearn.decomposition import LatentDirichletAllocation
@@ -6,7 +6,6 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from config import CLUSTER_THRESHOLD
 
-logger = logging.getLogger(__name__)
 
 
 def _build_text(article: dict) -> str:

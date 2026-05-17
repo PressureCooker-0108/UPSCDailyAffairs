@@ -18,6 +18,24 @@ from models.database import (
     init_db, SessionLocal
 )
 
+# ── Pipeline Status ──
+_pipeline_status: dict = {
+    "is_running": False,
+    "last_run_start": None,
+    "last_run_end": None,
+    "last_run_duration": None,
+    "last_run_success": None,
+    "total_stories_processed": 0,
+    "total_gemini_success": 0,
+    "total_gemini_failures": 0,
+}
+
+
+def get_pipeline_status() -> dict:
+    """Return current pipeline status with timing and stats."""
+    return dict(_pipeline_status)
+
+
 _scheduler = BackgroundScheduler()
 
 
@@ -34,7 +52,12 @@ def _build_cluster_text(cluster: list[dict]) -> str:
 def run_pipeline() -> None:
     """Run the UPSC-focused news pipeline."""
     start = time.time()
+    _pipeline_status["is_running"] = True
+    _pipeline_status["last_run_start"] = datetime.now(timezone.utc).isoformat()
     logger.info("=== Pipeline start ===")
+
+    gemini_success = 0
+    gemini_failures = 0
 
     try:
         # 1. Fetch
@@ -65,6 +88,11 @@ def run_pipeline() -> None:
 
             if not recent:
                 logger.warning("No recent articles to process")
+                _pipeline_status["is_running"] = False
+                _pipeline_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+                elapsed = time.time() - start
+                _pipeline_status["last_run_duration"] = round(elapsed, 1)
+                _pipeline_status["last_run_success"] = True
                 return
 
             # 4. Cluster
@@ -148,10 +176,13 @@ def run_pipeline() -> None:
                         )
                         story["exam_playbook"] = playbook
                         if playbook:
+                            gemini_success += 1
                             logger.info(f"[GEMINI] Generated exam playbook for: {story['title'][:60]}")
                         else:
+                            gemini_failures += 1
                             logger.warning(f"[GEMINI] Failed to generate playbook for: {story['title'][:60]}")
                     except Exception as e:
+                        gemini_failures += 1
                         logger.warning(f"[GEMINI] Analysis failed for '{story['title'][:60]}': {e}")
                         story["exam_playbook"] = None
                 else:
@@ -160,6 +191,10 @@ def run_pipeline() -> None:
             if not filtered_stories:
                 db.close()
                 elapsed = time.time() - start
+                _pipeline_status["is_running"] = False
+                _pipeline_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+                _pipeline_status["last_run_duration"] = round(elapsed, 1)
+                _pipeline_status["last_run_success"] = True
                 logger.info(f"=== Pipeline complete in {elapsed:.1f}s (no UPSC stories) ===")
                 return
 
@@ -175,11 +210,22 @@ def run_pipeline() -> None:
             db.close()
 
         elapsed = time.time() - start
+        _pipeline_status["is_running"] = False
+        _pipeline_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+        _pipeline_status["last_run_duration"] = round(elapsed, 1)
+        _pipeline_status["last_run_success"] = True
+        _pipeline_status["total_stories_processed"] = len(filtered_stories)
+        _pipeline_status["total_gemini_success"] += gemini_success
+        _pipeline_status["total_gemini_failures"] += gemini_failures
         logger.info(f"=== Pipeline complete in {elapsed:.1f}s ===")
 
     except Exception as e:
         logger.exception(f"Pipeline failed: {e}")
         elapsed = time.time() - start
+        _pipeline_status["is_running"] = False
+        _pipeline_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+        _pipeline_status["last_run_duration"] = round(elapsed, 1)
+        _pipeline_status["last_run_success"] = False
         logger.info(f"=== Pipeline failed after {elapsed:.1f}s ===")
 
 

@@ -1,5 +1,5 @@
 import json
-from sqlalchemy import Column, String, Float, Integer, Text, DateTime, create_engine
+from sqlalchemy import Column, String, Float, Integer, Text, DateTime, Index, create_engine
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -7,6 +7,9 @@ Base = declarative_base()
 
 class Article(Base):
     __tablename__ = "articles"
+    __table_args__ = (
+        Index("ix_articles_published_at", "published_at"),
+    )
 
     id = Column(String, primary_key=True)
     title = Column(String)
@@ -30,6 +33,10 @@ class Cluster(Base):
 
 class Summary(Base):
     __tablename__ = "stories"
+    __table_args__ = (
+        Index("ix_stories_relevance_score", "relevance_score"),
+        Index("ix_stories_gs_paper", "gs_paper"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String)

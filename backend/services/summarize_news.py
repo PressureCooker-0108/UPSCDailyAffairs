@@ -1,10 +1,9 @@
-import logging
+from loguru import logger
 import re
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from config import TOPIC_TEMPLATES
 
-logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
 # Rich topic descriptions for TF-IDF-based "Why It Matters"

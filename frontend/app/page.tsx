@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
+import { ErrorBoundary } from "@/components/error-boundary"
 import type { UPSCStory, ExamPlaybook } from "@/types/story"
 import { fetchUPSCStories } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
@@ -406,6 +407,7 @@ export default function Home() {
       <Header />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 sm:space-y-8">
+        <ErrorBoundary>
         {/* Hero */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
           <div className="h-10 w-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
@@ -554,6 +556,7 @@ export default function Home() {
             </span>
           </div>
         </div>
+        </ErrorBoundary>
       </main>
     </div>
   )

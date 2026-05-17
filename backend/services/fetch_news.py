@@ -1,5 +1,5 @@
 import hashlib
-import logging
+from loguru import logger
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
@@ -9,7 +9,6 @@ import httpx
 
 from config import RSS_SOURCES, PRS_SCRAPER_CONFIG, get_source_metadata, get_source_weight
 
-logger = logging.getLogger(__name__)
 
 # Regex to extract first <img> src from HTML snippets (fallback for feeds without media tags)
 _IMG_SRC_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']', re.IGNORECASE)

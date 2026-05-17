@@ -22,14 +22,13 @@ Uses:
 
 import itertools
 import json
-import logging
+from loguru import logger
 import os
 import time
 from typing import Any
 
 import httpx
 
-logger = logging.getLogger(__name__)
 
 # Gemini API configuration
 _GEMINI_MODEL = "gemini-2.5-flash"
