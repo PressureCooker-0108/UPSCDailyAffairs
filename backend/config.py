@@ -76,9 +76,9 @@ PRS_SCRAPER_CONFIG = {
     "enabled": True,
     "base_url": "https://prsindia.org",
     "pages": [
-        "/blog",              # Policy explainers & analysis
-        "/theprsblog",        # Parliament summaries
-        "/bill-tracker",      # Bills tracking
+        "/theprsblog",                # Parliament summaries & analysis
+        "/billtrack",                  # Bills tracking
+        "/policy/monthly-policy-review",  # Monthly policy reviews
     ],
     "max_articles": 20,
 }

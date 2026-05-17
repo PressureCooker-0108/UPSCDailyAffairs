@@ -141,6 +141,9 @@ def _scrape_prs_page(client: httpx.Client, page_path: str) -> list[dict]:
     # Extract title+link pairs from h2 and h3 tags
     matches = _PRS_TITLE_RE.findall(html) + _PRS_TITLE_RE2.findall(html)
 
+    if not matches:
+        logger.warning(f"  PRS {page_path}: no article links found (page structure may have changed)")
+
     for href, title_text in matches:
         href = href.strip()
         title_text = title_text.strip()
