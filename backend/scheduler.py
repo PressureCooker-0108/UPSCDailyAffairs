@@ -127,7 +127,7 @@ def run_pipeline() -> None:
                         logger.info(f"[GEMINI] Reused existing playbook for: {story['title'][:60]}")
                         continue
 
-                    time.sleep(1.5)  # ~40 req/min, well within free quota
+                    time.sleep(4.0)  # ~15 req/min, within Gemini free tier rate limit
                     try:
                         playbook = generate_exam_playbook(
                             headline=story["title"],
