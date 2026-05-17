@@ -244,11 +244,11 @@ RECENCY_WEIGHT = 0.4
 COVERAGE_WEIGHT = 0.6
 
 # Ranking formula weights (must sum to 1.0)
-RANK_RELEVANCE_WEIGHT = 0.35
-RANK_AUTHORITY_WEIGHT = 0.20
-RANK_NOVELTY_WEIGHT = 0.15
-RANK_POLICY_WEIGHT = 0.15
-RANK_SYLLABUS_WEIGHT = 0.15
+RANK_RELEVANCE_WEIGHT = 0.50   # Relevance is king
+RANK_AUTHORITY_WEIGHT = 0.15   # Less weight on source authority
+RANK_NOVELTY_WEIGHT = 0.15     # Keep novelty moderate
+RANK_POLICY_WEIGHT = 0.12      # Policy impact secondary
+RANK_SYLLABUS_WEIGHT = 0.08    # Syllabus overlap is tertiary
 
 
 # ──────────────────────────────────────────────

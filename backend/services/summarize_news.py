@@ -280,7 +280,9 @@ def summarize_stories(ranked_stories: list[dict]) -> list[dict]:
         cluster = story["cluster"]
         title, url = _pick_headline(cluster)
         summary = _make_summary(cluster)
-        why = _why_it_matters(cluster)
+        # Use UPSC-filter-generated why_it_matters if available (from process_cluster),
+        # otherwise fall back to topic-template-based generation
+        why = story.get("why_it_matters") or _why_it_matters(cluster)
 
         # Pick the best image from the cluster: prefer the article whose headline
         # was chosen, otherwise the first article with an image_url
@@ -323,6 +325,7 @@ def summarize_stories(ranked_stories: list[dict]) -> list[dict]:
             "gs_paper": story.get("gs_paper"),
             "subtopics": story.get("subtopics", []),
             "matched_criteria": story.get("matched_criteria", []),
+            "priority_level": story.get("priority_level"),
         })
     return results
 

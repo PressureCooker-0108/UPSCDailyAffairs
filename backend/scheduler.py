@@ -10,12 +10,13 @@ from services.clean_news import clean_articles
 from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
-from upsc_filter import score_relevance, score_novelty, record_story
+from upsc_filter import generate_why_it_matters, score_relevance, score_novelty, record_story
 from upsc_analyzer import (
     AI_RELEVANCE_THRESHOLD,
     generate_exam_playbook,
     get_ai_runtime_status,
     prepare_ai_run,
+    probe_openrouter,
 )
 from models.database import (
     save_articles, save_stories,
@@ -73,6 +74,13 @@ def run_pipeline() -> None:
         f"(model={ai_status['model']}, free_tier={ai_status['is_free_tier']}, "
         f"run_cap={ai_status['run_cap']}, has_key_info={ai_status['has_key_info']})"
     )
+
+    # Health-check OpenRouter before processing
+    health = probe_openrouter()
+    if health["status"] != "ok":
+        logger.warning(f"[AI Health Check] OpenRouter may be unreachable: {health}")
+    else:
+        logger.info("[AI Health Check] OpenRouter is reachable")
 
     try:
         # 1. Fetch
@@ -137,6 +145,10 @@ def run_pipeline() -> None:
                 story["gs_paper"] = upsc_result["gs_paper"]
                 story["subtopics"] = upsc_result["subtopics"]
                 story["matched_criteria"] = upsc_result["matched_criteria"]
+                story["why_it_matters"] = generate_why_it_matters(
+                    relevance=upsc_result,
+                    matched_criteria=upsc_result.get("matched_criteria", []),
+                )
                 record_story(text)
                 logger.info(f"[UPSC] Story {i}: relevance={upsc_result['relevance_score']:.2f}, "
                     f"priority={upsc_result['priority_score']:.2f}, gs_paper={upsc_result['gs_paper']}")

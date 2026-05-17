@@ -197,13 +197,20 @@ Return ONLY valid JSON that matches this schema:
   "one_line_takeaway": string
 }
 
-Rules:
-- Be concise
+CRITICAL RULES FOR one_line_takeaway:
+- MUST be specific to THIS article's content — NOT generic
+- MUST be different from the "Why it matters" field provided
+- Do NOT use templates like "This development is significant for UPSC preparation"
+- Do NOT reuse or rephrase the input "Why it matters" — generate NEW insight
+- Do NOT say "reflects ongoing trends" without specifying WHICH trends
+- Focus on the CONCRETE exam angle: "How would UPSC test THIS specific story?"
+- Maximum 15 words
 - Use UPSC terminology
-- Focus on analytical importance
-- Avoid generic commentary
-- Mention exact syllabus connections
-- Do not wrap the JSON in markdown unless absolutely necessary"""
+- Mention exact syllabus connections when possible
+- Examples of GOOD: "RBI repo rate hike tests monetary policy knowledge", "PM Modi bilateral visit signals India-Sweden strategic partnership"
+- Examples of BAD: "This is significant for UPSC", "reflects ongoing trends", "important for preparation"
+
+Do not wrap the JSON in markdown."""
 
 
 def _build_upsc_prompt(

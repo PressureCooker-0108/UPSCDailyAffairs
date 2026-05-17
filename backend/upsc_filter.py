@@ -557,6 +557,53 @@ def clear_novelty_memory() -> None:
     _previous_vectorizer = None
 
 
+def generate_why_it_matters(
+    relevance: dict[str, Any] | None = None,
+    matched_criteria: list[str] | None = None,
+) -> str:
+    """Generate a brief, story-specific 'why it matters' from classification/relevance results.
+
+    Returns a short string like:
+      "Maps to GS2 • Covers Polity, Governance • High relevance"
+
+    NOT a generic template. Each story gets unique reasoning based on its classification.
+    """
+    parts: list[str] = []
+
+    gs_paper = "Unknown"
+    subtopics: list[str] = []
+    relevance_score = 0.0
+
+    if relevance:
+        gs_paper = relevance.get("gs_paper", "Unknown")
+        subtopics = relevance.get("subtopics", [])
+        relevance_score = relevance.get("relevance_score", 0.0)
+
+    # Part 1: Which GS paper
+    if gs_paper != "Unknown":
+        parts.append(f"Maps to {gs_paper}")
+
+    # Part 2: Specific subtopics (top 2 only)
+    if subtopics:
+        sub_str = ", ".join(subtopics[:2])
+        parts.append(f"Covers {sub_str}")
+
+    # Part 3: Relevance level
+    if relevance_score >= 0.70:
+        parts.append("High UPSC relevance")
+    elif relevance_score >= 0.50:
+        parts.append("Moderate relevance")
+    else:
+        parts.append("UPSC-relevant")
+
+    # Part 4: First matched criterion if available (max 50 chars)
+    if matched_criteria:
+        crit = matched_criteria[0][:50]
+        parts.append(f"Criterion: {crit}")
+
+    return " • ".join(parts) if parts else "UPSC-relevant development"
+
+
 # ──────────────────────────────────────────────
 #  Cluster Processing
 # ──────────────────────────────────────────────
@@ -630,11 +677,11 @@ def process_cluster(
     try:
         from config import RANK_RELEVANCE_WEIGHT, RANK_AUTHORITY_WEIGHT, RANK_NOVELTY_WEIGHT, RANK_POLICY_WEIGHT, RANK_SYLLABUS_WEIGHT
     except ImportError:
-        RANK_RELEVANCE_WEIGHT = 0.35
-        RANK_AUTHORITY_WEIGHT = 0.20
-        RANK_NOVELTY_WEIGHT = 0.15
-        RANK_POLICY_WEIGHT = 0.15
-        RANK_SYLLABUS_WEIGHT = 0.15
+        RANK_RELEVANCE_WEIGHT = 0.50  # Relevance is king
+        RANK_AUTHORITY_WEIGHT = 0.15  # Less weight on source authority
+        RANK_NOVELTY_WEIGHT = 0.15    # Keep novelty moderate (don't penalise recombinations)
+        RANK_POLICY_WEIGHT = 0.12     # Policy impact secondary
+        RANK_SYLLABUS_WEIGHT = 0.08   # Syllabus overlap is tertiary
 
     priority_score = (
         RANK_RELEVANCE_WEIGHT * relevance["relevance_score"]
@@ -644,8 +691,35 @@ def process_cluster(
         + RANK_SYLLABUS_WEIGHT * syllabus_overlap
     )
 
-    # 7. Gemini threshold check
-    passes_gemini_threshold = relevance["relevance_score"] >= 0.72
+    # 7. Gemini / AI threshold check
+    passes_gemini_threshold = relevance["relevance_score"] >= 0.50
+
+    # 8. Priority level classification for UI
+    headline_preview = cluster[0].get("title", "Unknown")[:50] if cluster else "Unknown"
+    if priority_score >= 0.70:
+        priority_level = "Very High"
+    elif priority_score >= 0.55:
+        priority_level = "High"
+    elif priority_score >= 0.40:
+        priority_level = "Medium"
+    else:
+        priority_level = "Low"
+
+    logger.debug(
+        f"[Priority Calc] {headline_preview}... "
+        f"rel={relevance['relevance_score']:.3f} "
+        f"auth={avg_authority:.3f} "
+        f"nov={novelty['novelty_score']:.3f} "
+        f"policy={policy_impact:.3f} "
+        f"syll={syllabus_overlap:.3f} "
+        f"→ priority={priority_score:.3f} ({priority_level})"
+    )
+    logger.info(
+        f"[UPSC Filter] Cluster processed: "
+        f"relevance={relevance['relevance_score']:.3f} → "
+        f"passes_gemini={passes_gemini_threshold} "
+        f"(GS: {relevance['gs_paper']}, subtopics: {len(subtopics)})"
+    )
 
     return {
         "cluster": cluster,
@@ -666,6 +740,12 @@ def process_cluster(
         "avg_authority": round(avg_authority, 4),
         "source_type": ",".join(sorted(source_types)) if source_types else None,
         "source_priority": best_priority,
+        # UPSC enrichment fields
+        "why_it_matters": generate_why_it_matters(
+            relevance=relevance,
+            matched_criteria=relevance.get("matched_criteria", []),
+        ),
+        "priority_level": priority_level,
     }
 
 
