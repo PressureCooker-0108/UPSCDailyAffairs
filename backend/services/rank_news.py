@@ -7,9 +7,9 @@ from config import MAX_STORIES
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
-# Source authority weights
-# Higher weight = more credible / authoritative source
-# Used to boost stories covered by reputable outlets.
+# Source authority weights (legacy fallback)
+# Kept for backward compatibility — new sources
+# use SOURCE_WEIGHTS from config.py
 # ──────────────────────────────────────────────
 SOURCE_AUTHORITY = {
     "Reuters": 1.0,
@@ -17,14 +17,13 @@ SOURCE_AUTHORITY = {
     "Reuters Business": 1.0,
     "Associated Press": 1.0,
     "BBC": 0.95,
-    "BBC World": 0.95,
+    "BBC World": 0.85,
     "BBC General": 0.95,
     "NYTimes": 0.9,
     "NYTimes World": 0.9,
     "NYTimes Home": 0.9,
     "The Guardian": 0.85,
-    "The Guardian World": 0.85,
-    "The Guardian Tech": 0.85,
+    "The Guardian World": 0.82,
     "Wall Street Journal": 0.95,
     "WSJ": 0.95,
     "Financial Times": 0.95,
@@ -35,43 +34,39 @@ SOURCE_AUTHORITY = {
     "CNBC": 0.8,
     "CNBC Top News": 0.8,
     "NPR": 0.85,
-    "Al Jazeera": 0.8,
+    "Al Jazeera": 0.78,
     "DW": 0.8,
-    "DW (Germany)": 0.8,
+    "The Diplomat": 0.80,
     "SCMP": 0.7,
-    "SCMP (China)": 0.7,
-    "Japan Times": 0.7,
-    "The Verge": 0.7,
-    "Ars Technica": 0.7,
-    "TechCrunch": 0.65,
-    "Wired": 0.7,
-    "VentureBeat": 0.6,
-    "MarketWatch": 0.65,
-    "Investing.com": 0.55,
-    "Yahoo Finance": 0.55,
-    "Seeking Alpha": 0.5,
-    "The Hindu": 0.75,
+    "The Hindu": 0.90,
+    "The Hindu Editorial": 0.92,
+    "The Hindu International": 0.88,
+    "Indian Express": 0.82,
+    "Indian Express Explained": 0.92,
     "Times of India": 0.6,
-    "Indian Express": 0.65,
-    "LiveMint": 0.6,
-    "Economic Times": 0.65,
-    "Business Standard": 0.6,
+    "Hindustan Times": 0.75,
+    "LiveMint": 0.78,
+    "Economic Times": 0.80,
+    "Business Standard": 0.74,
     "Moneycontrol": 0.55,
     "NDTV": 0.6,
-    "Hacker News": 0.6,
-    "Y Combinator": 0.6,
-    "Artificial Intelligence News": 0.45,
-    "OilPrice": 0.4,
-    "Energy Voice": 0.5,
+    "Down To Earth": 0.88,
+    "PIB": 1.0,
 }
 
 
 def _get_source_authority(source_name: str) -> float:
-    """Get authority weight for a source, defaulting to 0.5 for unknown sources."""
-    # Check exact match first
+    """Get authority weight for a source.
+
+    Checks SOURCE_WEIGHTS from config first (UPSC sources),
+    then legacy SOURCE_AUTHORITY dict.
+    Defaults to 0.5 for unknown sources.
+    """
+    from config import SOURCE_WEIGHTS
+    if source_name in SOURCE_WEIGHTS:
+        return SOURCE_WEIGHTS[source_name]
     if source_name in SOURCE_AUTHORITY:
         return SOURCE_AUTHORITY[source_name]
-    # Check if source name contains any known key
     for key, weight in SOURCE_AUTHORITY.items():
         if key.lower() in source_name.lower():
             return weight
@@ -109,20 +104,22 @@ def _recency_score(latest: datetime) -> float:
         return 1.0
     if age_hours >= 48:
         return 0.0
-    # Exponential decay: score = e^(-0.1 * (age-2))
-    # This gives: ~82% at 4h, ~67% at 6h, ~37% at 12h, ~14% at 24h
     return float(max(0.0, np.exp(-0.1 * (age_hours - 2))))
-
 
 
 def rank_clusters(clusters: list[list[dict]]) -> list[dict]:
     """
     Score each cluster using a multi-factor ranking:
-    - Coverage (cluster size relative to max): how many articles cover this
+    - Coverage (cluster size relative to max)
     - Recency: how recent the latest article is
-    - Source authority: average credibility of covering sources
+    - Source authority: average credibility of covering sources (uses SOURCE_WEIGHTS)
     - Source diversity: number of unique authoritative sources
-    
+
+    Updated weights (from spec):
+      relevance×0.35 + source_authority×0.20 + novelty×0.15 + policy_impact×0.15 + syllabus_overlap×0.15
+    (Note: relevance, novelty, policy, and syllabus scores are computed later in the UPSC filter.
+     This initial ranking uses coverage/recency as proxies, plus source authority.)
+
     Returns top MAX_STORIES stories sorted by score.
     """
     if not clusters:
@@ -147,13 +144,29 @@ def rank_clusters(clusters: list[list[dict]]) -> list[dict]:
         unique_sources = len(sources_set)
         diversity_bonus = min(unique_sources / 5.0, 1.0)  # Cap at 5 sources
 
-        # Final score: weighted multi-factor combination
-        # Normalized to sum to 1.0: 50% coverage, 30% recency, 10% authority, 10% diversity
+        # Updated formula: more weight on authority (0.20), less on coverage
+        # Uses config constants if available, otherwise defaults
+        try:
+            from config import RANK_RELEVANCE_WEIGHT, RANK_AUTHORITY_WEIGHT, RANK_NOVELTY_WEIGHT, RANK_POLICY_WEIGHT, RANK_SYLLABUS_WEIGHT
+            # At this stage we only have coverage + recency as relevance proxy,
+            # and authority. Novelty/policy/syllabus come later.
+            # Distribute the later-stage weights proportionally across available factors.
+            avail = RANK_RELEVANCE_WEIGHT + RANK_NOVELTY_WEIGHT + RANK_POLICY_WEIGHT + RANK_SYLLABUS_WEIGHT  # = 0.80
+            coverage_w = RANK_RELEVANCE_WEIGHT + (RANK_NOVELTY_WEIGHT * 0.5)  # 0.35 + 0.075 = 0.425
+            recency_w = (RANK_NOVELTY_WEIGHT * 0.5) + (RANK_POLICY_WEIGHT * 0.5)  # 0.075 + 0.075 = 0.15
+            authority_w = RANK_AUTHORITY_WEIGHT  # 0.20
+            diversity_w = (RANK_POLICY_WEIGHT * 0.5) + RANK_SYLLABUS_WEIGHT  # 0.075 + 0.15 = 0.225
+        except ImportError:
+            coverage_w = 0.40
+            recency_w = 0.25
+            authority_w = 0.20
+            diversity_w = 0.15
+
         final = (
-            0.50 * coverage
-            + 0.30 * recency
-            + 0.10 * avg_authority
-            + 0.10 * diversity_bonus
+            coverage_w * coverage
+            + recency_w * recency
+            + authority_w * avg_authority
+            + diversity_w * diversity_bonus
         )
 
         sources = sorted(sources_set)
@@ -164,6 +177,7 @@ def rank_clusters(clusters: list[list[dict]]) -> list[dict]:
             "article_count": size,
             "latest_at": latest.isoformat(),
             "sources": sources,
+            "avg_authority": round(avg_authority, 4),
         })
 
     scored.sort(key=lambda s: s["score"], reverse=True)

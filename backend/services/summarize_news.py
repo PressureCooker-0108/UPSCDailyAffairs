@@ -311,6 +311,12 @@ def summarize_stories(ranked_stories: list[dict]) -> list[dict]:
             "latest_at": story["latest_at"],
             "sectors": story.get("sectors", ["General"]),
             "image_url": image_url,
+            # Source metadata (computed in upsc_filter.process_cluster, passed through)
+            "source_type": story.get("source_type"),        # comma-separated string
+            "authority_score": story.get("avg_authority"),   # float (avg of cluster articles)
+            "content_type": story.get("content_type"),
+            "source_priority": story.get("source_priority"),
+            "policy_impact": story.get("policy_impact"),
             # Carry forward UPSC fields set by upsc_filter.py
             "relevance_score": story.get("relevance_score"),
             "priority_score": story.get("priority_score"),

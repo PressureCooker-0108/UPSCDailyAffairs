@@ -2,19 +2,10 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, FileText, Download, Globe, FileDown, Sun, Moon, Timer, GraduationCap } from "lucide-react"
+import { RefreshCw, Globe, Sun, Moon, Timer, GraduationCap } from "lucide-react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
-import { downloadMarkdown, downloadJson, downloadPdf } from "@/lib/api"
-
-const GS_COLORS: Record<string, string> = {
-  "GS Paper I": "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  "GS Paper II": "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  "GS Paper III": "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  "GS Paper IV": "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  "Prelims": "bg-rose-500/10 text-rose-400 border-rose-500/20",
-}
 
 export function Header() {
   const [refreshing, setRefreshing] = useState(false)
@@ -23,7 +14,7 @@ export function Header() {
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001"}/pipeline/run`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8002"}/pipeline/run`, {
         method: "POST",
       })
       if (res.status === 429) {
@@ -74,16 +65,10 @@ export function Header() {
             </div>
           </Link>
 
-          {/* Center: Navigation */}
+          {/* Center: Navigation - UPSC only */}
           <nav className="hidden md:flex items-center gap-1">
             <Link
               href="/"
-              className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/upsc"
               className="px-3 py-1.5 rounded-md text-xs font-medium text-amber-400/80 hover:text-amber-300 hover:bg-amber-500/10 transition-colors flex items-center gap-1.5"
             >
               <GraduationCap className="h-3.5 w-3.5" />
@@ -103,17 +88,6 @@ export function Header() {
             >
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            </Button>
-            <div className="h-5 w-px bg-border/60 mx-1 hidden sm:block" />
-            <Button variant="ghost" size="sm" onClick={downloadMarkdown} className="hidden sm:flex" title="Download Markdown Briefing">
-              <FileText className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={downloadJson} className="hidden sm:flex" title="Download JSON Export">
-              <Download className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={downloadPdf} className="gap-1.5">
-              <FileDown className="h-4 w-4" />
-              <span className="hidden sm:inline text-xs font-medium">PDF</span>
             </Button>
             <Button
               variant="outline"

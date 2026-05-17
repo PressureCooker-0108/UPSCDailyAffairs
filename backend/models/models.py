@@ -47,6 +47,12 @@ class Summary(Base):
     trending_score = Column(Float, nullable=True)  # Historical trending
     image_url = Column(String, nullable=True)  # Image from the cluster's best article
 
+    # --- Source Metadata Columns ---
+    source_type = Column(String, nullable=True)        # Type: government, legislative, explainer, editorial, environment, news
+    authority_score = Column(Float, nullable=True)     # Source authority score (0-1)
+    content_type = Column(String, nullable=True)       # Detected content type: editorial, explainer, policy_release, bill, etc.
+    source_priority = Column(String, nullable=True)    # Priority: very_high, high, medium, low
+
     # --- UPSC Exam Intelligence Columns ---
     relevance_score = Column(Float, nullable=True)  # UPSC relevance score (0-1)
     priority_score = Column(Float, nullable=True)  # Priority score (0-1)
@@ -54,38 +60,6 @@ class Summary(Base):
     gs_paper = Column(String, nullable=True)       # GS paper mapping (e.g., "GS2", "GS3", "Prelims")
     subtopics = Column(Text, nullable=True)         # JSON-serialized list of subtopics
     exam_playbook = Column(Text, nullable=True)     # JSON-serialized exam intelligence from Gemini
-
-
-class MarketData(Base):
-    __tablename__ = "market_data"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    ticker = Column(String, index=True)
-    name = Column(String)
-    price = Column(Float)
-    change = Column(Float)
-    change_pct = Column(Float)
-    market_cap = Column(String, nullable=True)
-    sector = Column(String)
-    recorded_at = Column(String)
-
-
-class Briefing(Base):
-    __tablename__ = "briefings"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    content = Column(Text)  # Markdown briefing text
-    created_at = Column(String)
-
-
-class SectorSummary(Base):
-    __tablename__ = "sector_summaries"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    sector = Column(String, index=True)
-    summary = Column(Text)
-    headline_count = Column(Integer)
-    created_at = Column(String)
 
 
 class StoryReview(Base):

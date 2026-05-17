@@ -32,6 +32,8 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+from config import detect_content_type, get_source_metadata
+
 logger = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────
@@ -592,17 +594,58 @@ def process_cluster(
     # 3. Novelty scoring
     novelty = score_novelty(cluster_text)
 
-    # 4. Final priority score
+    # 4. Content-type detection & policy impact
+    content_type, content_boost = detect_content_type(cluster_text)
+
+    # 5. Source authority from cluster articles
+    source_types = set()
+    authorities = []
+    source_priorities = set()
+    for article in cluster:
+        st = article.get("source_type")
+        if st:
+            source_types.add(st)
+        auth = article.get("authority_score")
+        if auth is not None:
+            authorities.append(auth)
+        sp = article.get("source_priority")
+        if sp:
+            source_priorities.add(sp)
+
+    avg_authority = sum(authorities) / len(authorities) if authorities else 0.5
+    best_priority = max(source_priorities, key=lambda p: {"very_high": 4, "high": 3, "medium": 2, "low": 1}.get(p, 0)) if source_priorities else "medium"
+
+    # Policy impact: content type boost + source authority bonus
+    # High-authority sources get a natural boost; content types like bills/explainers get additional boost
+    policy_impact = content_boost + (avg_authority * 0.1)
+
+    # Syllabus overlap: use the classification confidence as a proxy
+    syllabus_overlap = relevance.get("confidence", 0.0)
+
+    # 6. Final priority score — new formula from spec
+    # relevance×0.35 + source_authority×0.20 + novelty×0.15 + policy_impact×0.15 + syllabus_overlap×0.15
     cluster_size = len(cluster)
     size_factor = min(cluster_size / 5.0, 1.0)
+
+    # Use config weights if available, else defaults
+    try:
+        from config import RANK_RELEVANCE_WEIGHT, RANK_AUTHORITY_WEIGHT, RANK_NOVELTY_WEIGHT, RANK_POLICY_WEIGHT, RANK_SYLLABUS_WEIGHT
+    except ImportError:
+        RANK_RELEVANCE_WEIGHT = 0.35
+        RANK_AUTHORITY_WEIGHT = 0.20
+        RANK_NOVELTY_WEIGHT = 0.15
+        RANK_POLICY_WEIGHT = 0.15
+        RANK_SYLLABUS_WEIGHT = 0.15
+
     priority_score = (
-        relevance["relevance_score"] * 0.4
-        + relevance["priority_score"] * 0.3
-        + novelty["novelty_score"] * 0.2
-        + size_factor * 0.1
+        RANK_RELEVANCE_WEIGHT * relevance["relevance_score"]
+        + RANK_AUTHORITY_WEIGHT * avg_authority
+        + RANK_NOVELTY_WEIGHT * novelty["novelty_score"]
+        + RANK_POLICY_WEIGHT * min(policy_impact, 1.0)
+        + RANK_SYLLABUS_WEIGHT * syllabus_overlap
     )
 
-    # 5. Gemini threshold check
+    # 7. Gemini threshold check
     passes_gemini_threshold = relevance["relevance_score"] >= 0.72
 
     return {
@@ -618,6 +661,12 @@ def process_cluster(
         "passes_gemini_threshold": passes_gemini_threshold,
         "cluster_size": cluster_size,
         "novelty_details": novelty,
+        # Source intelligence fields
+        "content_type": content_type,
+        "policy_impact": round(policy_impact, 4),
+        "avg_authority": round(avg_authority, 4),
+        "source_type": ",".join(sorted(source_types)) if source_types else None,
+        "source_priority": best_priority,
     }
 
 

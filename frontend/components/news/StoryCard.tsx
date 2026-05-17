@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Story } from "@/types/story"
+import { UPSCStory } from "@/types/story"
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { ExternalLink, Newspaper, TrendingUp, BarChart3, FileText, ImageOff } fr
 import { StoryReview } from "./StoryReview"
 
 interface StoryCardProps {
-  story: Story
+  story: UPSCStory
   className?: string
 }
 

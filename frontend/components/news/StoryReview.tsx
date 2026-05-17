@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { SECTORS } from "@/types/story"
+
 import { submitReview } from "@/lib/api"
 import { MessageSquare, ThumbsUp, Loader2 } from "lucide-react"
 
@@ -142,7 +142,7 @@ export function StoryReview({ storyTitle, storyUrl }: StoryReviewProps) {
                   <SelectValue placeholder="Select a section..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {SECTORS.map((s) => (
+                  {["GS Paper I", "GS Paper II", "GS Paper III", "GS Paper IV", "Prelims"].map((s) => (
                     <SelectItem key={s} value={s} className="text-xs">
                       {s}
                     </SelectItem>

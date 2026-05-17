@@ -48,7 +48,7 @@ def get_db():
 
 
 def init_db():
-    from .models import Article, Cluster, Summary, MarketData, Briefing, SectorSummary, StoryReview
+    from .models import Article, Cluster, Summary, StoryReview
     from loguru import logger
     
     # Create tables that don't exist yet
@@ -60,11 +60,8 @@ def init_db():
     # production database was already created (e.g., image_url, sectors).
     inspector = inspect(engine)
     for table_name, model_class in [
-        ("articles", Article),
+        (    "articles", Article),
         ("stories", Summary),
-        ("market_data", MarketData),
-        ("briefings", Briefing),
-        ("sector_summaries", SectorSummary),
     ]:
         try:
             existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
@@ -208,6 +205,12 @@ def save_stories(stories_data: list[dict], db: Session | None = None) -> None:
                 sector_summary=s.get("sector_summary"),
                 trending_score=s.get("trending_score"),
                 image_url=s.get("image_url"),
+                # Source metadata
+                source_type=s.get("source_type"),
+                authority_score=s.get("authority_score"),
+                content_type=s.get("content_type"),
+                source_priority=s.get("source_priority"),
+                # UPSC exam intelligence
                 relevance_score=s.get("relevance_score"),
                 priority_score=s.get("priority_score"),
                 novelty_score=s.get("novelty_score"),
@@ -261,6 +264,12 @@ def get_top_stories(limit: int = 10) -> list[dict]:
                 "sector_summary": s.sector_summary,
                 "trending_score": s.trending_score,
                 "image_url": s.image_url,
+                # Source metadata
+                "source_type": s.source_type,
+                "authority_score": s.authority_score,
+                "content_type": s.content_type,
+                "source_priority": s.source_priority,
+                # UPSC exam intelligence
                 "relevance_score": s.relevance_score,
                 "priority_score": s.priority_score,
                 "novelty_score": s.novelty_score,
@@ -324,6 +333,12 @@ def get_upsc_stories(limit: int = 50, min_relevance: float = 0.0) -> list[dict]:
                 "sector_summary": s.sector_summary,
                 "trending_score": s.trending_score,
                 "image_url": s.image_url,
+                # Source metadata
+                "source_type": s.source_type,
+                "authority_score": s.authority_score,
+                "content_type": s.content_type,
+                "source_priority": s.source_priority,
+                # UPSC exam intelligence
                 "relevance_score": s.relevance_score,
                 "priority_score": s.priority_score,
                 "novelty_score": s.novelty_score,
@@ -399,140 +414,6 @@ def last_updated() -> str | None:
     try:
         res = db.query(Summary.created_at).order_by(desc(Summary.created_at)).first()
         return res[0] if res else None
-    finally:
-        db.close()
-
-
-# ──────────────────────────────────────────────
-# Market Data
-# ──────────────────────────────────────────────
-
-def save_market_data(data: list[dict]) -> None:
-    from .models import MarketData
-    db = SessionLocal()
-    now = datetime.now(timezone.utc).isoformat()
-    try:
-        # Clear old data
-        db.query(MarketData).delete()
-        for d in data:
-            md = MarketData(
-                ticker=d["ticker"],
-                name=d.get("name", ""),
-                price=d.get("price", 0),
-                change=d.get("change", 0),
-                change_pct=d.get("change_pct", 0),
-                market_cap=d.get("market_cap"),
-                sector=d.get("sector", "General"),
-                recorded_at=now,
-            )
-            db.add(md)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
-
-
-def get_market_data() -> list[dict]:
-    from .models import MarketData
-    db = SessionLocal()
-    try:
-        records = db.query(MarketData).all()
-        return [
-            {
-                "ticker": r.ticker,
-                "name": r.name,
-                "price": r.price,
-                "change": r.change,
-                "change_pct": r.change_pct,
-                "market_cap": r.market_cap,
-                "sector": r.sector,
-            }
-            for r in records
-        ]
-    finally:
-        db.close()
-
-
-# ──────────────────────────────────────────────
-# Briefings
-# ──────────────────────────────────────────────
-
-def save_briefing(content: str) -> None:
-    from .models import Briefing
-    db = SessionLocal()
-    now = datetime.now(timezone.utc).isoformat()
-    try:
-        db.query(Briefing).delete()
-        b = Briefing(content=content, created_at=now)
-        db.add(b)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        db.close()
-
-
-def get_latest_briefing() -> dict | None:
-    from .models import Briefing
-    db = SessionLocal()
-    try:
-        b = db.query(Briefing).order_by(desc(Briefing.created_at)).first()
-        if b:
-            return {"content": b.content, "created_at": b.created_at}
-        return None
-    finally:
-        db.close()
-
-
-# ──────────────────────────────────────────────
-# Sector Summaries
-# ──────────────────────────────────────────────
-
-def save_sector_summary(sector: str, summary: str, headline_count: int, db: Session | None = None) -> None:
-    """Save a sector summary, optionally reusing an existing DB session for batching."""
-    from .models import SectorSummary
-    own_session = False
-    if db is None:
-        db = SessionLocal()
-        own_session = True
-    now = datetime.now(timezone.utc).isoformat()
-    try:
-        existing = db.query(SectorSummary).filter(SectorSummary.sector == sector).first()
-        if existing:
-            existing.summary = summary
-            existing.headline_count = headline_count
-            existing.created_at = now
-        else:
-            ss = SectorSummary(sector=sector, summary=summary, headline_count=headline_count, created_at=now)
-            db.add(ss)
-        if own_session:
-            db.commit()
-    except Exception as e:
-        if own_session:
-            db.rollback()
-        raise e
-    finally:
-        if own_session:
-            db.close()
-
-
-def get_sector_summaries() -> list[dict]:
-    from .models import SectorSummary
-    db = SessionLocal()
-    try:
-        records = db.query(SectorSummary).all()
-        return [
-            {
-                "sector": r.sector,
-                "summary": r.summary,
-                "headline_count": r.headline_count,
-                "created_at": r.created_at,
-            }
-            for r in records
-        ]
     finally:
         db.close()
 

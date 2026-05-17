@@ -1,142 +1,319 @@
 """
 Configuration for UPSC Daily Affairs.
-RSS feeds (with sector tags), constants, and topic templates.
-
-Each RSS source can be tagged with one or more sectors:
-  - Articles inherit these sectors automatically (primary classification)
-  - Keyword matching validates/extends sectors based on article content
-  - Empty list means keyword matching is the sole classifier (fallback)
+RSS feeds, source metadata, and pipeline constants for UPSC-relevant news processing.
 """
 
+import re
+
 # ──────────────────────────────────────────────
-# RSS Feed Sources (with sector mapping)
+# RSS Feed Sources (UPSC-focused)
 # ──────────────────────────────────────────────
-# Format: { "name": ..., "url": ..., "sectors": [...] }
-#   - sectors: list of sector tags this feed primarily covers
-#   - empty list [] = unclassified → uses TF-IDF classifier only
+# Each entry: name, rss_url (or None for custom scrapers), sectors (GS paper mapping)
+# PIB, DTE, PRS, etc. are high-priority UPSC sources.
+# Generic/Tabloid sources removed.
 # ──────────────────────────────────────────────
 
 RSS_SOURCES = [
-    # ── Geopolitics / World News ──
-    {"name": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "sectors": ["Geopolitics"]},
-    {"name": "BBC General", "url": "https://feeds.bbci.co.uk/news/rss.xml", "sectors": ["General"]},
-    {"name": "CNN World", "url": "http://rss.cnn.com/rss/cnn_world.rss", "sectors": ["Geopolitics"]},
-    {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "sectors": ["Geopolitics"]},
-    {"name": "France24", "url": "https://www.france24.com/en/rss", "sectors": ["Geopolitics"]},
-    {"name": "The Guardian World", "url": "https://www.theguardian.com/world/rss", "sectors": ["Geopolitics"]},
-    {"name": "The Guardian UK", "url": "https://www.theguardian.com/uk/rss", "sectors": ["General"]},
-    {"name": "Foreign Policy", "url": "https://foreignpolicy.com/feed/", "sectors": ["Geopolitics"]},
-    {"name": "The Diplomat", "url": "https://thediplomat.com/feed/", "sectors": ["Geopolitics"]},
-    {"name": "DW (Germany)", "url": "https://www.dw.com/en/top-stories/s-9097/rss", "sectors": ["Geopolitics"]},
-    {"name": "SCMP (China)", "url": "https://www.scmp.com/rss/91/feed", "sectors": ["Geopolitics"]},
-    {"name": "Japan Times", "url": "https://www.japantimes.co.jp/feed/", "sectors": ["Geopolitics"]},
+    # ══════ TIER 1 — Highest Priority ══════
 
-    # ── US & Global Politics ──
-    {"name": "NYTimes World", "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "sectors": ["Geopolitics"]},
-    {"name": "NYTimes Politics", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml", "sectors": ["Geopolitics"]},
-    {"name": "NYTimes Economy", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml", "sectors": ["Markets"]},
-    {"name": "Washington Post National", "url": "https://feeds.washingtonpost.com/rss/national", "sectors": ["General"]},
-    {"name": "NPR News", "url": "https://feeds.npr.org/1001/rss.xml", "sectors": ["General"]},
-    {"name": "CBS News World", "url": "https://www.cbsnews.com/latest/rss/world", "sectors": ["Geopolitics"]},
-    {"name": "Defense News", "url": "https://www.defensenews.com/arc/outboundfeeds/rss/", "sectors": ["Geopolitics"]},
-    {"name": "Foreign Affairs", "url": "https://www.foreignaffairs.com/rss.xml", "sectors": ["Geopolitics"]},
-    {"name": "NPR World", "url": "https://feeds.npr.org/1004/rss.xml", "sectors": ["Geopolitics"]},
-    {"name": "The Intercept", "url": "https://theintercept.com/feed/?lang=en", "sectors": ["Geopolitics"]},
-    {"name": "Stratfor Worldview", "url": "https://worldview.stratfor.com/rss.xml", "sectors": ["Geopolitics"]},
+    # ── PIB (Government Releases) ──
+    {"name": "PIB", "url": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1", "sectors": ["India", "Governance"]},
 
-    # ── Markets & Business ──
-    {"name": "NYTimes Business", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml", "sectors": ["Markets"]},
-    {"name": "CNBC Top News", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "sectors": ["Markets"]},
-    {"name": "CNBC Finance", "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664", "sectors": ["Markets"]},
-    {"name": "MarketWatch", "url": "https://feeds.marketwatch.com/marketwatch/topstories/", "sectors": ["Markets"]},
-    {"name": "Investing.com", "url": "https://www.investing.com/rss/news.rss", "sectors": ["Markets"]},
-    {"name": "NPR Business", "url": "https://feeds.npr.org/1014/rss.xml", "sectors": ["Markets"]},
-    {"name": "The Guardian Business", "url": "https://www.theguardian.com/business/rss", "sectors": ["Markets"]},
-    {"name": "LiveMint", "url": "https://www.livemint.com/rss/news", "sectors": ["Markets", "India"]},
-    {"name": "Economic Times", "url": "https://economictimes.indiatimes.com/rssfeedstopstories.cms", "sectors": ["Markets", "India"]},
-    {"name": "Business Standard", "url": "https://www.business-standard.com/rss/home_page_top_stories.rss", "sectors": ["Markets", "India"]},
-    {"name": "Moneycontrol", "url": "https://www.moneycontrol.com/rss/latestnews.xml", "sectors": ["Markets", "India"]},
-    {"name": "Bloomberg Markets", "url": "https://feeds.bloomberg.com/markets/news.rss", "sectors": ["Markets"]},
-    {"name": "Yahoo Finance", "url": "https://finance.yahoo.com/news/rssindex", "sectors": ["Markets"]},
-    {"name": "Financial Times", "url": "https://www.ft.com/rss/home", "sectors": ["Markets"]},
-    {"name": "Fortune", "url": "https://fortune.com/feed/", "sectors": ["Markets"]},
-    {"name": "Seeking Alpha", "url": "https://seekingalpha.com/feed.xml", "sectors": ["Markets"]},
+    # ── Indian Express — Explained (Policy Explainers) ──
+    {"name": "Indian Express Explained", "url": "https://indianexpress.com/section/explained/feed/", "sectors": ["India", "Governance"]},
 
-    # ── Tech ──
-    {"name": "BBC Technology", "url": "https://feeds.bbci.co.uk/news/technology/rss.xml", "sectors": ["Tech"]},
-    {"name": "NYTimes Technology", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml", "sectors": ["Tech"]},
-    {"name": "TechCrunch", "url": "https://techcrunch.com/feed/", "sectors": ["Tech"]},
-    {"name": "Hacker News", "url": "https://news.ycombinator.com/rss", "sectors": ["Tech"]},
-    {"name": "Wired", "url": "https://www.wired.com/feed/rss", "sectors": ["Tech"]},
-    {"name": "The Verge", "url": "https://www.theverge.com/rss/index.xml", "sectors": ["Tech"]},
-    {"name": "Ars Technica", "url": "http://feeds.arstechnica.com/arstechnica/index", "sectors": ["Tech"]},
-    {"name": "VentureBeat", "url": "https://venturebeat.com/feed/", "sectors": ["Tech"]},
-    {"name": "Artificial Intelligence News", "url": "https://www.artificialintelligence-news.com/feed/", "sectors": ["Tech"]},
-    {"name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/", "sectors": ["Tech"]},
-    {"name": "The Next Web", "url": "https://thenextweb.com/feed/", "sectors": ["Tech"]},
-    {"name": "CNET", "url": "https://www.cnet.com/rss/news/", "sectors": ["Tech"]},
-    {"name": "Engadget", "url": "https://www.engadget.com/rss.xml", "sectors": ["Tech"]},
-    {"name": "ZDNet", "url": "https://www.zdnet.com/news/rss.xml", "sectors": ["Tech"]},
+    # ── The Hindu Editorials ──
+    {"name": "The Hindu Editorial", "url": "https://www.thehindu.com/opinion/editorial/?service=rss", "sectors": ["India", "Governance"]},
 
-    # ── India ──
-    {"name": "Times of India", "url": "https://timesofindia.indiatimes.com/rss/4719148.cms", "sectors": ["India"]},
-    {"name": "The Hindu", "url": "https://www.thehindu.com/news/international/?service=rss", "sectors": ["India"]},
-    {"name": "NDTV", "url": "https://feeds.feedburner.com/ndtvnews-top-stories", "sectors": ["India"]},
+    # ── The Hindu (National) ──
+    {"name": "The Hindu", "url": "https://www.thehindu.com/news/national/?service=rss", "sectors": ["India"]},
+
+    # ─️─ The Hindu International ──
+    {"name": "The Hindu International", "url": "https://www.thehindu.com/news/international/?service=rss", "sectors": ["Geopolitics", "India"]},
+
+    # ── Down To Earth (Environment) ──
+    {"name": "Down To Earth", "url": "https://www.downtoearth.org.in/rss/all.xml", "sectors": ["India", "Environment"]},
+
+    # ══════ TIER 2 — Core UPSC Coverage ══════
+
+    # ── Indian Express (India) ──
     {"name": "Indian Express", "url": "https://indianexpress.com/section/india/feed/", "sectors": ["India"]},
-    {"name": "Zee News", "url": "https://zeenews.india.com/rss/india-national-news.xml", "sectors": ["India"]},
+
+    # ── Hindustan Times ──
     {"name": "Hindustan Times", "url": "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml", "sectors": ["India"]},
-    {"name": "Deccan Herald", "url": "https://www.deccanherald.com/feed", "sectors": ["India"]},
 
-    # ── Energy ──
-    {"name": "CleanTechnica", "url": "https://cleantechnica.com/feed/", "sectors": ["Energy", "Tech"]},
-    {"name": "OilPrice.com", "url": "https://oilprice.com/rss/main", "sectors": ["Energy"]},
-    {"name": "Energy Voice", "url": "https://www.energyvoice.com/feed/", "sectors": ["Energy"]},
-    {"name": "Utility Dive", "url": "https://www.utilitydive.com/feeds/news/", "sectors": ["Energy"]},
-    {"name": "Hydrogen Fuel News", "url": "https://www.hydrogenfuelnews.com/feed/", "sectors": ["Energy"]},
-    {"name": "ET EnergyWorld", "url": "https://energy.economictimes.indiatimes.com/rss/topstories", "sectors": ["Energy", "India"]},
-    {"name": "Power Magazine", "url": "https://www.powermag.com/feed/", "sectors": ["Energy"]},
-    {"name": "Energy Storage News", "url": "https://www.energy-storage.news/feed/", "sectors": ["Energy", "Tech"]},
+    # ── Economic Times (Economy) ──
+    {"name": "Economic Times", "url": "https://economictimes.indiatimes.com/rssfeedstopstories.cms", "sectors": ["India"]},
 
-    # ── General / Fallback ──
-    {"name": "The Guardian Tech", "url": "https://www.theguardian.com/uk/technology/rss", "sectors": ["Tech"]},
+    # ── LiveMint (Economy/Policy) ──
+    {"name": "LiveMint", "url": "https://www.livemint.com/rss/news", "sectors": ["India"]},
 
-    # ── Sports ──
-    {"name": "BBC Sport", "url": "https://feeds.bbci.co.uk/sport/rss.xml", "sectors": ["Sports"]},
-    {"name": "ESPN", "url": "https://www.espn.com/espn/rss/news", "sectors": ["Sports"]},
-    {"name": "Sky Sports", "url": "https://www.skysports.com/rss/12040", "sectors": ["Sports"]},
-    {"name": "The Guardian Sport", "url": "https://www.theguardian.com/uk/sport/rss", "sectors": ["Sports"]},
-    {"name": "CBS Sports", "url": "https://www.cbssports.com/rss/headlines", "sectors": ["Sports"]},
-    {"name": "Yahoo Sports", "url": "https://sports.yahoo.com/rss/", "sectors": ["Sports"]},
-    {"name": "Sports Illustrated", "url": "https://www.si.com/rss/top", "sectors": ["Sports"]},
-    {"name": "Reuters Sports", "url": "https://www.reutersagency.com/feed/?best-topics=sports", "sectors": ["Sports"]},
-    {"name": "NYT Sports", "url": "https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml", "sectors": ["Sports"]},
-    {"name": "Fox Sports", "url": "https://api.foxsports.com/v1/rss?partnerKey=zBaFxRyGKCfxBagJG9b8pqLyndmvo7UU", "sectors": ["Sports"]},
+    # ── Business Standard ──
+    {"name": "Business Standard", "url": "https://www.business-standard.com/rss/home_page_top_stories.rss", "sectors": ["India"]},
+
+    # ══════ TIER 3 — Geopolitics / International Relations ══════
+
+    {"name": "BBC World", "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "sectors": ["Geopolitics"]},
+    {"name": "The Guardian World", "url": "https://www.theguardian.com/world/rss", "sectors": ["Geopolitics"]},
+    {"name": "Al Jazeera", "url": "https://www.aljazeera.com/xml/rss/all.xml", "sectors": ["Geopolitics"]},
+    {"name": "The Diplomat", "url": "https://thediplomat.com/feed/", "sectors": ["Geopolitics"]},
+
+    # ══════ TIER 4 — Context / Reports ══════
+
+    # ── ET EnergyWorld (Environment/Energy) ──
+    {"name": "ET EnergyWorld", "url": "https://energy.economictimes.indiatimes.com/rss/topstories", "sectors": ["India", "Environment"]},
 ]
+
+# ──────────────────────────────────────────────
+# PRS Legislative Research — Custom Scraper Config
+# ──────────────────────────────────────────────
+# PRS India does not provide RSS feeds.
+# It is fetched via a lightweight HTML scraper defined in fetch_news.py
+# that targets key pages (bills, acts, policy explainers, parliament summaries).
+# ──────────────────────────────────────────────
+
+PRS_SCRAPER_CONFIG = {
+    "enabled": True,
+    "base_url": "https://prsindia.org",
+    "pages": [
+        "/blog",              # Policy explainers & analysis
+        "/theprsblog",        # Parliament summaries
+        "/bill-tracker",      # Bills tracking
+    ],
+    "max_articles": 20,
+}
+
+# ──────────────────────────────────────────────
+# Source Metadata
+# ──────────────────────────────────────────────
+# Maps source name → type, authority_score, upsc_priority
+# Used for ranking, filtering, and Gemini eligibility.
+# ──────────────────────────────────────────────
+
+SOURCE_METADATA = {
+    "PIB": {"type": "government", "authority_score": 1.0, "upsc_priority": "very_high"},
+    "PRS": {"type": "legislative", "authority_score": 0.98, "upsc_priority": "very_high"},
+    "Indian Express Explained": {"type": "explainer", "authority_score": 0.92, "upsc_priority": "very_high"},
+    "The Hindu Editorial": {"type": "editorial", "authority_score": 0.92, "upsc_priority": "very_high"},
+    "The Hindu": {"type": "editorial", "authority_score": 0.90, "upsc_priority": "high"},
+    "The Hindu International": {"type": "editorial", "authority_score": 0.88, "upsc_priority": "high"},
+    "Down To Earth": {"type": "environment", "authority_score": 0.88, "upsc_priority": "high"},
+    "Indian Express": {"type": "news", "authority_score": 0.82, "upsc_priority": "high"},
+    "Hindustan Times": {"type": "news", "authority_score": 0.75, "upsc_priority": "medium"},
+    "Economic Times": {"type": "news", "authority_score": 0.80, "upsc_priority": "high"},
+    "LiveMint": {"type": "news", "authority_score": 0.78, "upsc_priority": "medium"},
+    "Business Standard": {"type": "news", "authority_score": 0.74, "upsc_priority": "medium"},
+    "ET EnergyWorld": {"type": "news", "authority_score": 0.72, "upsc_priority": "medium"},
+    "BBC World": {"type": "news", "authority_score": 0.85, "upsc_priority": "medium"},
+    "The Guardian World": {"type": "news", "authority_score": 0.82, "upsc_priority": "medium"},
+    "Al Jazeera": {"type": "news", "authority_score": 0.78, "upsc_priority": "medium"},
+    "The Diplomat": {"type": "news", "authority_score": 0.80, "upsc_priority": "medium"},
+}
+
+# ──────────────────────────────────────────────
+# Source Weights (for ranking formula)
+# ──────────────────────────────────────────────
+# Used in rank_news.py to boost stories from authoritative UPSC sources.
+# Higher weight = more influence on final ranking score.
+# ──────────────────────────────────────────────
+
+SOURCE_WEIGHTS = {
+    "PIB": 1.0,
+    "PRS": 0.98,
+    "Indian Express Explained": 0.92,
+    "The Hindu Editorial": 0.92,
+    "The Hindu": 0.90,
+    "The Hindu International": 0.88,
+    "Down To Earth": 0.88,
+    "Indian Express": 0.82,
+    "BBC World": 0.85,
+    "The Guardian World": 0.82,
+    "Economic Times": 0.80,
+    "The Diplomat": 0.80,
+    "Al Jazeera": 0.78,
+    "LiveMint": 0.78,
+    "Hindustan Times": 0.75,
+    "Business Standard": 0.74,
+    "ET EnergyWorld": 0.72,
+}
+
+
+def get_source_metadata(source_name: str) -> dict:
+    """Get metadata for a source, returning defaults if not found."""
+    return SOURCE_METADATA.get(source_name, {
+        "type": "news",
+        "authority_score": 0.5,
+        "upsc_priority": "low",
+    })
+
+
+def get_source_weight(source_name: str) -> float:
+    """Get ranking weight for a source, defaulting to 0.5."""
+    return SOURCE_WEIGHTS.get(source_name, 0.5)
+
+
+# ──────────────────────────────────────────────
+# Content-Type Detection Keywords
+# ──────────────────────────────────────────────
+# Used in upsc_filter.py to detect and boost
+# high-value content types (explainers, policy analysis, etc.).
+# ──────────────────────────────────────────────
+
+CONTENT_TYPE_PATTERNS = {
+    "editorial": [
+        r"\b(editorial|opinion|viewpoint|op-ed|commentary)\b",
+    ],
+    "explainer": [
+        r"\b(explained|explainer|what is|what are|how does|why is|understanding|in focus)\b",
+    ],
+    "policy_release": [
+        r"\b(cabinet approves|cabinet decisions|government notifies|policy announced|new policy|\bguidelines issued|scheme launched|mission launched)\b",
+    ],
+    "bill": [
+        r"\b(bill passed|bill introduced|parliament bill|legislative bill|new bill|\bamendment bill|finance bill|bill tabled)\b",
+    ],
+    "report": [
+        r"\b(report says|committee report|survey finds|annual report|\bstats released|data shows|economic survey)\b",
+    ],
+    "speech": [
+        r"\b(address to|speech at|remarks at|inaugural address|budget speech|president address|pm addresses)\b",
+    ],
+    "committee_report": [
+        r"\b(standing committee|select committee|parliamentary committee|committee recommends|panel suggests)\b",
+    ],
+    "environment_update": [
+        r"\b(climate change|global warming|biodiversity|conservation|wetland|pollution|emissions|renewable energy|\bsustainable|greenhouse gas|endangered species|deforestation)\b",
+    ],
+    "economic_policy": [
+        r"\b(fiscal policy|monetary policy|rbi policy|interest rate|\bgdp growth|inflation|budget|fiscal deficit|current account)\b",
+    ],
+    "governance": [
+        r"\b(governance|e-governance|transparency|accountability|right to information|public service|administrative reform)\b",
+    ],
+    "constitutional": [
+        r"\b(supreme court|high court|constitution|fundamental rights|directive principles|writ petition|judicial review|constitutional amendment)\b",
+    ],
+    "international_relations": [
+        r"\b(diplomatic|bilateral|multilateral|treaty|summit|foreign minister|external affairs|strategic partnership|memorandum of understanding)\b",
+    ],
+}
+
+CONTENT_TYPE_BOOST = {
+    "explainer": 0.10,
+    "editorial": 0.08,
+    "policy_release": 0.10,
+    "bill": 0.12,
+    "committee_report": 0.10,
+    "report": 0.06,
+    "economic_policy": 0.08,
+    "governance": 0.06,
+    "constitutional": 0.08,
+    "international_relations": 0.06,
+    "environment_update": 0.06,
+    "speech": 0.04,
+}
+
+
+def detect_content_type(text: str) -> tuple[str, float]:
+    """Detect content type from text and return (type, boost).
+
+    Checks patterns in priority order, returning the highest-boost match.
+    """
+    text_lower = text.lower()
+    best_type = "general"
+    best_boost = 0.0
+
+    for content_type, patterns in CONTENT_TYPE_PATTERNS.items():
+        for pattern in patterns:
+            if re.search(pattern, text_lower):
+                boost = CONTENT_TYPE_BOOST.get(content_type, 0.0)
+                if boost > best_boost:
+                    best_boost = boost
+                    best_type = content_type
+                break  # One match per type is enough
+
+    return best_type, best_boost
+
 
 # ──────────────────────────────────────────────
 # Pipeline Constants
 # ──────────────────────────────────────────────
-MAX_STORIES = 80
+MAX_STORIES = 60
 CLUSTER_THRESHOLD = 0.45
 RECENCY_WEIGHT = 0.4
 COVERAGE_WEIGHT = 0.6
 
-# Database
-# Migration to Supabase complete.
+# Ranking formula weights (must sum to 1.0)
+RANK_RELEVANCE_WEIGHT = 0.35
+RANK_AUTHORITY_WEIGHT = 0.20
+RANK_NOVELTY_WEIGHT = 0.15
+RANK_POLICY_WEIGHT = 0.15
+RANK_SYLLABUS_WEIGHT = 0.15
+
 
 # ──────────────────────────────────────────────
-# Topic → "Why It Matters" Templates
+# Why-It-Matters Topic Templates
+# Used by summarize_news.py for context enrichment.
 # ──────────────────────────────────────────────
 TOPIC_TEMPLATES = {
-    "election": "Political transitions can shift policy direction and market sentiment.",
-    "war": "Armed conflict affects global supply chains, energy prices, and geopolitical stability.",
-    "economy": "Economic shifts impact inflation, employment, and investment decisions globally.",
-    "fed": "Central bank decisions directly influence borrowing costs and global capital flows.",
-    "rate": "Interest rate changes ripple through mortgages, business loans, and currency markets.",
-    "ai": "AI developments are reshaping industries, labor markets, and competitive dynamics.",
-    "climate": "Climate events and policy changes affect agriculture, insurance, and infrastructure.",
-    "market": "Market movements reflect investor confidence and can signal broader economic trends.",
-    "health": "Health crises affect workforce productivity, government spending, and supply chains.",
-    "trade": "Trade policy changes affect prices, jobs, and international relations.",
-    "default": "This is a developing story worth monitoring.",
+    "default": (
+        "This development is significant for UPSC preparation as it reflects "
+        "ongoing trends in governance, policy, and national priorities."
+    ),
+    "election": (
+        "Elections and political transitions shape policy direction, "
+        "governance priorities, and India's democratic processes. "
+        "Understanding electoral dynamics is crucial for GS2 (Polity & Governance)."
+    ),
+    "war": (
+        "Conflicts and geopolitical tensions have wide-ranging implications "
+        "for international relations, security, and global governance. "
+        "Relevant for GS2 (International Relations) and GS3 (Security)."
+    ),
+    "economy": (
+        "Economic developments directly impact India's growth trajectory, "
+        "fiscal policy, and reform agenda. Essential for GS3 (Economic Development)."
+    ),
+    "fed": (
+        "Central bank policy decisions influence capital flows, inflation, "
+        "and monetary conditions globally. Important for GS3 (Economy)."
+    ),
+    "rate": (
+        "Interest rate changes affect borrowing costs, investment, "
+        "and financial sector stability. Relevant for GS3 (Economic Development)."
+    ),
+    "climate": (
+        "Climate change and environmental developments are critical for "
+        "sustainable development, disaster management, and environmental governance. "
+        "Relevant for GS3 (Environment & Ecology) and GS2 (Governance)."
+    ),
+    "health": (
+        "Public health developments impact human capital, welfare schemes, "
+        "and healthcare governance. Relevant for GS2 (Social Justice) and GS3 (Health)."
+    ),
+    "trade": (
+        "Trade policy and international economic relations shape India's "
+        "external sector, manufacturing competitiveness, and foreign policy. "
+        "Relevant for GS2 (International Relations) and GS3 (Economy)."
+    ),
+    "governance": (
+        "Governance and administrative reforms are central to UPSC GS2 (Polity & Governance). "
+        "Understanding policy implementation and institutional mechanisms is essential."
+    ),
+    "corruption": (
+        "Anti-corruption measures, transparency initiatives, and accountability "
+        "mechanisms are critical for good governance. Relevant for GS2 (Governance) and GS4 (Ethics)."
+    ),
+    "infrastructure": (
+        "Infrastructure development drives economic growth and regional connectivity. "
+        "Important for GS3 (Infrastructure & Economic Development)."
+    ),
+    "education": (
+        "Education policy and reforms shape human capital development. "
+        "Relevant for GS2 (Social Justice & Education)."
+    ),
+    "agriculture": (
+        "Agricultural developments affect food security, farmer welfare, "
+        "and rural economy. Important for GS3 (Agriculture & Food Security)."
+    ),
 }
