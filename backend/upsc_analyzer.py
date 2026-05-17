@@ -16,9 +16,9 @@ Gemini NEVER:
 
 Uses:
   - httpx (REST API, NOT Google SDK)
-  - gemini-2.0-flash model (primary)
-  - gemini-2.0-flash-lite (fallback, same quota pool)
-  - gemini-1.5-flash (second fallback, separate quota pool)
+  - gemini-2.0-flash model (primary, v1 API)
+  - gemini-2.0-flash-lite (fallback, v1 API, same quota pool)
+  - gemini-1.5-flash (second fallback, v1beta API, separate quota pool)
   - temperature = 0.2, maxOutputTokens = 1024
 """
 
@@ -39,7 +39,10 @@ _GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
 # Exponential backoff for 429 retries: 6s, 12s, 24s (3 retries max per model)
 _GEMINI_BACKOFF_BASE = 6.0  # starting backoff in seconds
 _GEMINI_MAX_RETRIES = 3  # max retries per model on 429
-_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1/models"
+_GEMINI_BASE_URL_V1 = "https://generativelanguage.googleapis.com/v1/models"
+_GEMINI_BASE_URL_V1BETA = "https://generativelanguage.googleapis.com/v1beta/models"
+# Models that require v1beta instead of v1
+_GEMINI_V1BETA_MODELS = {"gemini-1.5-flash"}
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 1024
 _GEMINI_TIMEOUT_SECONDS = 30.0
@@ -295,7 +298,8 @@ def generate_exam_playbook(
         model_used = None
 
         for model in models_to_try:
-            url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
+            base = _GEMINI_BASE_URL_V1BETA if model in _GEMINI_V1BETA_MODELS else _GEMINI_BASE_URL_V1
+            url = f"{base}/{model}:generateContent?key={api_key}"
 
             retries = 0
             while retries <= _GEMINI_MAX_RETRIES:
