@@ -1,0 +1,50 @@
+# ──────────────────────────────────────────────
+# Docker build context — ignore list
+# ──────────────────────────────────────────────
+# This file is at the repo root. When building from the repo root context,
+# these files/directories are NOT sent to the Docker daemon, keeping the
+# build context small and fast.
+# ──────────────────────────────────────────────
+
+# Frontend (separate deployment on Vercel)
+frontend/
+node_modules/
+.next/
+
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs and data
+*.log
+logs/
+*.db
+*.db-shm
+*.db-wal
+
+# Backend dev artifacts
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project configs (not needed at runtime)
+docker-compose.yml
+render.yaml
+README.md

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: news-dashboard-backend
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # ⚠️ REQUIRED — set this manually in Render dashboard.
+                      #    Use Supabase or Render PostgreSQL.
+                      #    See .env.example for details.
+      - key: API_KEY
+        sync: false  # Optional — set this to lock down POST endpoints.
+                      #    Generate with: openssl rand -hex 32
+      - key: CORS_ORIGINS
+        value: "https://your-frontend.vercel.app"  # ⚠️ Change to your actual frontend URL
+      - key: LOG_LEVEL
+        value: "INFO"
+    healthCheckPath: /

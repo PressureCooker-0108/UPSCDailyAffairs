@@ -1,0 +1,5 @@
+# ──────────────────────────────────────────────
+# Render Procfile — used for Python Native runtime.
+# Render runs this from the repo root, so we cd into backend/ first.
+# ──────────────────────────────────────────────
+web: uvicorn backend.main:app --host 0.0.0.0 --port $PORT

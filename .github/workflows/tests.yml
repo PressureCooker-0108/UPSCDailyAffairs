@@ -1,0 +1,115 @@
+# ──────────────────────────────────────────────
+# News Dashboard — CI Pipeline
+# ──────────────────────────────────────────────
+# Runs backend tests on every push to main and on pull requests.
+#
+# Jobs:
+#   test  — full test suite (unit + integration + smoke)
+#   lint  — Python syntax check + unused imports
+#
+# Smoke tests make real HTTP requests to RSS feeds (BBC, TechCrunch, etc.)
+# so they depend on network availability. They use continue-on-error so a
+# feed outage doesn't block PRs.
+# ──────────────────────────────────────────────
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+
+  # ── Tests ───────────────────────────────────
+  test:
+    name: "pytest (${{ matrix.group }})"
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - core      # unit + integration (fast, no network)
+          - smoke     # real RSS fetches (network-dependent, ~30s)
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install system dependencies (for hdbscan)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc g++
+        # hdbscan needs gcc/g++ to compile from source if a wheel isn't
+        # available for the runner's architecture.
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir --only-binary :all: -r requirements.txt || \
+            pip install --no-cache-dir -r requirements.txt
+          pip install --no-cache-dir pytest pytest-asyncio
+
+      - name: Create logs directory
+        run: mkdir -p logs
+
+      - name: Run core tests
+        if: matrix.group == 'core'
+        run: python -m pytest tests/ -v --tb=short -m "not smoke" --junitxml=../test-results-core.xml
+
+      - name: Run smoke tests
+        if: matrix.group == 'smoke'
+        continue-on-error: true  # RSS feeds can be flaky; don't block PRs
+        run: python -m pytest tests/ -v --tb=short -m smoke --junitxml=../test-results-smoke.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.group }}
+          path: test-results-*.xml
+
+  # ── Lint / Syntax Check ────────────────────
+  lint:
+    name: "lint (syntax check)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check Python syntax
+        run: |
+          find . -name '*.py' -exec python -m py_compile {} \;
+          echo "✅ All Python files compile successfully"
+
+      - name: Check for unused imports
+        run: |
+          pip install --no-cache-dir flake8
+          python -m flake8 --count --select=F401 --statistics .
+        continue-on-error: true
+        # F401 = imported but unused. Informational only, won't fail the build.

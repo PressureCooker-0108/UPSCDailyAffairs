@@ -1,0 +1,15 @@
+INFO:     Started server process [21256]
+INFO:     Waiting for application startup.
+2026-05-14 21:34:50,348 [INFO] __main__: Initializing database...
+2026-05-14 21:34:50,351 [INFO] __main__: Database initialized.
+2026-05-14 21:34:50,351 [INFO] scheduler: === Pipeline start ===
+2026-05-14 21:34:50,351 [INFO] scheduler: Fetching articles...
+2026-05-14 21:34:50,352 [INFO] services.fetch_news: Fetching RSS feed: NYTimes World
+2026-05-14 21:34:50,352 [INFO] apscheduler.scheduler: Adding job tentatively -- it will be properly scheduled when the scheduler starts
+2026-05-14 21:34:50,352 [INFO] apscheduler.scheduler: Added job "run_pipeline" to job store "default"
+2026-05-14 21:34:50,352 [INFO] apscheduler.scheduler: Scheduler started
+2026-05-14 21:34:50,353 [INFO] scheduler: Scheduler started — pipeline runs every 6 hours
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 8001): [winerror 10048] only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.

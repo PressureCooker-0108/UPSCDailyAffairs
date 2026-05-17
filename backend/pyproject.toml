@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+markers = [
+    "smoke: Tests that make real HTTP requests (RSS feeds). Use -m 'not smoke' to skip them.",
+]
+testpaths = ["tests"]
+asyncio_mode = "auto"
