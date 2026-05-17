@@ -151,11 +151,20 @@ app.add_middleware(
 )
 
 
-# ── Security Headers ──
+# ── Security Headers + CORS backup ──
+# CORS headers are set both here (as a reliable fallback) and via CORSMiddleware above.
+# The CORSMiddleware handles OPTIONS preflight; this middleware ensures every
+# response has the correct CORS headers regardless of env var configuration.
 
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     response: Response = await call_next(request)
+    origin = request.headers.get("Origin", "")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
