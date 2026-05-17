@@ -138,10 +138,14 @@ if _allowed_origins == "*":
 else:
     cors_origins = [o.strip() for o in _allowed_origins.split(",")]
 
+# Per the CORS spec, allow_credentials=True cannot be combined with
+# allow_origins=["*"]. When using wildcard origins, disable credentials.
+_use_credentials = _allowed_origins != "*"
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=_use_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
