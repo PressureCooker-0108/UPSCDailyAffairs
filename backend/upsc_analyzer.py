@@ -2,7 +2,7 @@
 upsc_analyzer.py — Gemini-Powered UPSC Exam Intelligence
 
 SECONDARY intelligence layer. ONLY processes stories that have already been
-pre-filtered by upsc_filter.py (relevance_score >= 0.72).
+pre-filtered by upsc_filter.py (relevance_score >= 0.5).
 
 Gemini is ONLY:
   - a structured reasoning layer
@@ -16,7 +16,7 @@ Gemini NEVER:
 
 Uses:
   - httpx (REST API, NOT Google SDK)
-  - gemini-1.5-flash model
+  - gemini-2.0-flash model
   - temperature = 0.2, maxOutputTokens = 500
 """
 
@@ -30,7 +30,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Gemini API configuration
-_GEMINI_MODEL = "gemini-1.5-flash"
+_GEMINI_MODEL = "gemini-2.0-flash"
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 500

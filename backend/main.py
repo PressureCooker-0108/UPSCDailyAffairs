@@ -284,7 +284,7 @@ def test_fetch():
 
 @app.get("/pipeline/test-gemini")
 def test_gemini():
-    """Test Gemini API key connectivity without running the full pipeline."""
+    """Probe multiple Gemini models to find one that works."""
     try:
         from upsc_analyzer import _get_api_key
         api_key = _get_api_key()
@@ -292,45 +292,62 @@ def test_gemini():
             return {"status": "error", "message": "GEMINI_API_KEY not set in environment"}
 
         import httpx
-        from upsc_analyzer import _GEMINI_MODEL, _GEMINI_BASE_URL, _GEMINI_TIMEOUT_SECONDS
+        from upsc_analyzer import _GEMINI_BASE_URL, _GEMINI_TIMEOUT_SECONDS
 
-        url = f"{_GEMINI_BASE_URL}/{_GEMINI_MODEL}:generateContent?key={api_key}"
-        payload = {
-            "contents": [{
-                "parts": [{"text": "Say 'Gemini API is working' in 3 words."}]
-            }],
-            "generationConfig": {
-                "temperature": 0.0,
-                "maxOutputTokens": 50,
-            },
-        }
+        models_to_try = [
+            "gemini-2.0-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash",
+            "gemini-2.5-flash-preview-05-14",
+        ]
 
-        with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
-            response = client.post(url, json=payload)
+        results = []
+        working_model = None
+        working_response = None
 
-        if response.status_code != 200:
+        for model in models_to_try:
+            url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
+            payload = {
+                "contents": [{
+                    "parts": [{"text": "Reply with one word: OK"}]
+                }],
+                "generationConfig": {
+                    "temperature": 0.0,
+                    "maxOutputTokens": 10,
+                },
+            }
+            try:
+                with httpx.Client(timeout=10.0) as client:
+                    resp = client.post(url, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        parts = candidates[0].get("content", {}).get("parts", [])
+                        text = parts[0].get("text", "") if parts else ""
+                        working_model = model
+                        working_response = text
+                        results.append({"model": model, "status": "ok", "response": text})
+                        break
+                else:
+                    results.append({"model": model, "status": "error", "code": resp.status_code, "detail": resp.text[:200]})
+            except Exception as e:
+                results.append({"model": model, "status": "error", "detail": str(e)})
+
+        if working_model:
+            return {
+                "status": "ok",
+                "model_used": working_model,
+                "response": working_response,
+                "api_key_set": True,
+                "all_results": results,
+            }
+        else:
             return {
                 "status": "error",
-                "message": f"API returned {response.status_code}",
-                "detail": response.text[:300],
+                "message": "No working model found",
+                "all_results": results,
             }
-
-        data = response.json()
-        candidates = data.get("candidates", [])
-        if not candidates:
-            return {"status": "error", "message": "No candidates returned", "detail": str(data)[:300]}
-
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            return {"status": "error", "message": "No content parts", "detail": str(data)[:300]}
-
-        text = parts[0].get("text", "")
-        return {
-            "status": "ok",
-            "model": _GEMINI_MODEL,
-            "response": text,
-            "api_key_set": True,
-        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
