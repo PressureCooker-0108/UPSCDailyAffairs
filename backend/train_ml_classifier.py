@@ -221,9 +221,9 @@ def train_model(
         max_df=0.85,
     )
 
-    # LogisticRegression with balanced class weights + multinomial for 3 classes
+    # LogisticRegression with balanced class weights
+    # lbfgs solver handles multinomial automatically in sklearn >= 1.6
     classifier = LogisticRegression(
-        multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
         class_weight="balanced",
@@ -253,16 +253,40 @@ def evaluate_model(
     model: Pipeline,
     texts: list[str],
     labels: list[str],
-) -> dict[str, Any]:
-    """Run train/test split evaluation and print metrics."""
+) -> dict[str, Any] | None:
+    """Run train/test split evaluation and print metrics.
+
+    Handles small/imbalanced datasets gracefully:
+      - If a class has < 2 samples, skips stratified split
+      - If total samples < 5, skips eval entirely
+    """
+    from collections import Counter
+
+    if len(texts) < 5:
+        logger.warning(f"Only {len(texts)} samples — skipping evaluation")
+        return None
+
+    # Check if stratification is possible (each class needs >= 2 samples)
+    class_counts = Counter(labels)
+    can_stratify = all(count >= 2 for count in class_counts.values())
+
+    split_kwargs = {"test_size": 0.25, "random_state": 42}
+    if can_stratify:
+        split_kwargs["stratify"] = labels
+    else:
+        logger.warning(
+            f"Some classes have < 2 samples ({dict(class_counts)}) — "
+            "falling back to non-stratified split"
+        )
+
     X_train, X_test, y_train, y_test = train_test_split(
-        texts, labels, test_size=0.25, random_state=42, stratify=labels
+        texts, labels, **split_kwargs
     )
 
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 
-    report = classification_report(y_test, y_pred, output_dict=True)
+    report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
     matrix = confusion_matrix(y_test, y_pred).tolist()
 
     classes = sorted(set(labels))
@@ -270,7 +294,7 @@ def evaluate_model(
     logger.info("EVALUATION REPORT (25% test split)")
     logger.info("=" * 60)
     logger.info(f"Train samples: {len(X_train)}, Test samples: {len(X_test)}")
-    logger.info(f"\n{classification_report(y_test, y_pred)}")
+    logger.info(f"\n{classification_report(y_test, y_pred, zero_division=0)}")
     logger.info(f"Confusion matrix:\n{np.array2string(np.array(matrix))}")
     logger.info("=" * 60)
 

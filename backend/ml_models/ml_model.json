@@ -1,0 +1,22 @@
+{
+  "model_path": "C:\\Users\\Adity\\OneDrive\\Desktop\\Projects\\UPSCDailyAffairs\\backend\\ml_models\\ml_model.joblib",
+  "classes": [
+    "FLAG",
+    "PASS"
+  ],
+  "features": [
+    "building",
+    "capacity",
+    "economic",
+    "health",
+    "heat",
+    "india",
+    "india needs",
+    "needs",
+    "public",
+    "ties",
+    "ties india",
+    "trump",
+    "war"
+  ]
+}
