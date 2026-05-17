@@ -23,6 +23,7 @@ Uses:
 import json
 import logging
 import os
+import time
 from typing import Any
 
 import httpx
@@ -31,7 +32,10 @@ logger = logging.getLogger(__name__)
 
 # Gemini API configuration
 _GEMINI_MODEL = "gemini-2.0-flash"
-_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-2.5-flash-preview-05-14"]
+_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite"]
+_GEMINI_RETRY_DELAY = 3.0  # seconds to wait before retrying a 429'd model
+_GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
+_GEMINI_MAX_RETRIES = 2  # max retries per model on 429
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 500
@@ -203,58 +207,79 @@ def generate_exam_playbook(
 
         for model in models_to_try:
             url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
-            try:
-                with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
-                    response = client.post(url, json=payload)
 
-                if response.status_code != 200:
-                    last_error = f"{response.status_code} - {response.text[:200]}"
-                    if model != models_to_try[-1]:
-                        logger.warning(f"[GEMINI] Model {model} failed ({response.status_code}), trying next...")
-                    continue
+            retries = 0
+            while retries <= _GEMINI_MAX_RETRIES:
+                if retries > 0:
+                    logger.warning(
+                        f"[GEMINI] Retrying {model} "
+                        f"(attempt {retries + 1}/{_GEMINI_MAX_RETRIES + 1})..."
+                    )
 
                 try:
-                    data = response.json()
+                    with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
+                        response = client.post(url, json=payload)
+
+                    if response.status_code == 429:
+                        # Rate limited — wait and retry same model
+                        last_error = f"429 - {response.text[:200]}"
+                        retries += 1
+                        if retries <= _GEMINI_MAX_RETRIES:
+                            logger.warning(
+                                f"[GEMINI] Model {model} rate limited, "
+                                f"sleeping {_GEMINI_RETRY_DELAY}s before retry..."
+                            )
+                            time.sleep(_GEMINI_RETRY_DELAY)
+                            continue
+                        else:
+                            break
+
+                    if response.status_code != 200:
+                        last_error = f"{response.status_code} - {response.text[:200]}"
+                        break  # Non-retryable error, try next model
+
+                    try:
+                        data = response.json()
+                    except Exception as e:
+                        last_error = f"invalid JSON: {e}"
+                        break
+
+                    # Extract text from Gemini response
+                    candidates = data.get("candidates", [])
+                    if not candidates:
+                        last_error = "no candidates"
+                        break
+
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if not parts:
+                        last_error = "no content parts"
+                        break
+
+                    response_text = parts[0].get("text", "")
+                    model_used = model
+                    break  # Success!
+
+                except httpx.TimeoutException:
+                    last_error = "timeout"
+                    break
+                except httpx.RequestError as e:
+                    last_error = str(e)
+                    break
                 except Exception as e:
-                    last_error = f"invalid JSON: {e}"
-                    if model != models_to_try[-1]:
-                        logger.warning(f"[GEMINI] Model {model} bad response ({e}), trying next...")
-                    continue
+                    last_error = str(e)
+                    break
 
-                # Extract text from Gemini response
-                candidates = data.get("candidates", [])
-                if not candidates:
-                    last_error = "no candidates"
-                    if model != models_to_try[-1]:
-                        logger.warning(f"[GEMINI] Model {model} returned no candidates, trying next...")
-                    continue
-
-                parts = candidates[0].get("content", {}).get("parts", [])
-                if not parts:
-                    last_error = "no content parts"
-                    if model != models_to_try[-1]:
-                        logger.warning(f"[GEMINI] Model {model} returned no content parts, trying next...")
-                    continue
-
-                response_text = parts[0].get("text", "")
-                model_used = model
+            # If model succeeded, exit the outer loop
+            if model_used is not None:
                 break
 
-            except httpx.TimeoutException:
-                last_error = "timeout"
-                if model != models_to_try[-1]:
-                    logger.warning(f"[GEMINI] Model {model} timed out, trying next...")
-                continue
-            except httpx.RequestError as e:
-                last_error = str(e)
-                if model != models_to_try[-1]:
-                    logger.warning(f"[GEMINI] Model {model} request failed ({e}), trying next...")
-                continue
-            except Exception as e:
-                last_error = str(e)
-                if model != models_to_try[-1]:
-                    logger.warning(f"[GEMINI] Model {model} unexpected error ({e}), trying next...")
-                continue
+            # Log failure and wait before trying next model
+            if model != models_to_try[-1]:
+                logger.warning(
+                    f"[GEMINI] Model {model} failed, "
+                    f"trying next in {_GEMINI_FALLBACK_DELAY}s..."
+                )
+                time.sleep(_GEMINI_FALLBACK_DELAY)
 
         if model_used is None:
             logger.error(f"[GEMINI] All models failed. Last error: {last_error}")
