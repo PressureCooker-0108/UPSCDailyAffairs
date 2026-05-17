@@ -14,6 +14,8 @@ services:
       - key: API_KEY
         sync: false  # Optional — set this to lock down POST endpoints.
                       #    Generate with: openssl rand -hex 32
+      - key: GEMINI_API_KEY
+        sync: false  # ⚠️ REQUIRED for exam playbooks. Get from https://aistudio.google.com/apikey
       - key: CORS_ORIGINS
         value: "https://your-frontend.vercel.app"  # ⚠️ Change to your actual frontend URL
       - key: LOG_LEVEL
