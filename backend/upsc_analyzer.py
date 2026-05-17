@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Gemini API configuration
 _GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-2.5-flash-preview-05-14"]
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 500
@@ -176,49 +177,88 @@ def generate_exam_playbook(
 
     subtopics = subtopics or []
 
-    prompt = _build_upsc_prompt(
-        gs_paper=gs_paper,
-        subtopics=subtopics,
-        matched_criteria=matched_criteria,
-        headline=headline,
-        summary=summary,
-        why_it_matters=why_it_matters,
-    )
-
-    url = f"{_GEMINI_BASE_URL}/{_GEMINI_MODEL}:generateContent?key={api_key}"
-
-    payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }],
-        "generationConfig": {
-            "temperature": _GEMINI_TEMPERATURE,
-            "maxOutputTokens": _GEMINI_MAX_TOKENS,
-        },
-    }
-
     try:
-        with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
-            response = client.post(url, json=payload)
+        prompt = _build_upsc_prompt(
+            gs_paper=gs_paper,
+            subtopics=subtopics,
+            matched_criteria=matched_criteria,
+            headline=headline,
+            summary=summary,
+            why_it_matters=why_it_matters,
+        )
 
-        if response.status_code != 200:
-            logger.error(f"Gemini API error: {response.status_code} - {response.text[:200]}")
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }],
+            "generationConfig": {
+                "temperature": _GEMINI_TEMPERATURE,
+                "maxOutputTokens": _GEMINI_MAX_TOKENS,
+            },
+        }
+
+        models_to_try = [_GEMINI_MODEL] + _GEMINI_FALLBACK_MODELS
+        last_error = None
+        model_used = None
+
+        for model in models_to_try:
+            url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
+            try:
+                with httpx.Client(timeout=_GEMINI_TIMEOUT_SECONDS) as client:
+                    response = client.post(url, json=payload)
+
+                if response.status_code != 200:
+                    last_error = f"{response.status_code} - {response.text[:200]}"
+                    if model != models_to_try[-1]:
+                        logger.warning(f"[GEMINI] Model {model} failed ({response.status_code}), trying next...")
+                    continue
+
+                try:
+                    data = response.json()
+                except Exception as e:
+                    last_error = f"invalid JSON: {e}"
+                    if model != models_to_try[-1]:
+                        logger.warning(f"[GEMINI] Model {model} bad response ({e}), trying next...")
+                    continue
+
+                # Extract text from Gemini response
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    last_error = "no candidates"
+                    if model != models_to_try[-1]:
+                        logger.warning(f"[GEMINI] Model {model} returned no candidates, trying next...")
+                    continue
+
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if not parts:
+                    last_error = "no content parts"
+                    if model != models_to_try[-1]:
+                        logger.warning(f"[GEMINI] Model {model} returned no content parts, trying next...")
+                    continue
+
+                response_text = parts[0].get("text", "")
+                model_used = model
+                break
+
+            except httpx.TimeoutException:
+                last_error = "timeout"
+                if model != models_to_try[-1]:
+                    logger.warning(f"[GEMINI] Model {model} timed out, trying next...")
+                continue
+            except httpx.RequestError as e:
+                last_error = str(e)
+                if model != models_to_try[-1]:
+                    logger.warning(f"[GEMINI] Model {model} request failed ({e}), trying next...")
+                continue
+            except Exception as e:
+                last_error = str(e)
+                if model != models_to_try[-1]:
+                    logger.warning(f"[GEMINI] Model {model} unexpected error ({e}), trying next...")
+                continue
+
+        if model_used is None:
+            logger.error(f"[GEMINI] All models failed. Last error: {last_error}")
             return None
-
-        data = response.json()
-
-        # Extract text from Gemini response
-        candidates = data.get("candidates", [])
-        if not candidates:
-            logger.warning("Gemini returned no candidates")
-            return None
-
-        parts = candidates[0].get("content", {}).get("parts", [])
-        if not parts:
-            logger.warning("Gemini returned no content parts")
-            return None
-
-        response_text = parts[0].get("text", "")
 
         # Parse structured JSON
         playbook = _parse_gemini_response(response_text)
@@ -230,19 +270,16 @@ def generate_exam_playbook(
         playbook["subtopics"] = subtopics or playbook.get("subtopics", [])
         playbook["relevance_score"] = relevance_score
 
+        if model_used != _GEMINI_MODEL:
+            logger.warning(f"[GEMINI] Used fallback model {model_used} for: {headline[:60]}...")
+
         logger.info(
             f"Generated exam playbook for: {headline[:60]}... "
-            f"(GS: {gs_paper}, prelims: {str(playbook.get('prelims_angle', ''))[:40]}...)"
+            f"(model: {model_used}, GS: {gs_paper})"
         )
 
         return playbook
 
-    except httpx.TimeoutException:
-        logger.error("Gemini API request timed out")
-        return None
-    except httpx.RequestError as e:
-        logger.error(f"Gemini API request failed: {e}")
-        return None
     except Exception as e:
-        logger.error(f"Unexpected error in Gemini analysis: {e}")
+        logger.error(f"[GEMINI] Unexpected error generating playbook for '{headline[:60]}...': {e}")
         return None
