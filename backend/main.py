@@ -190,7 +190,7 @@ def _probe_gemini_keys_all() -> dict:
     any_working = False
 
     for i, key in enumerate(keys):
-        env_var = f"GEMINI_API_KEY_{i + 1}" if i > 0 else "GEMINI_API_KEY"
+        env_var = f"GEMINI_API_KEY_{i}" if i > 0 else "GEMINI_API_KEY"
         masked = _mask_key(key)
 
         model_results = []

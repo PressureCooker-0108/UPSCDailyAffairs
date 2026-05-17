@@ -53,20 +53,28 @@ _api_key_cycle: itertools.cycle | None = None
 def _load_api_keys() -> list[str]:
     """Load all Gemini API keys from environment variables.
 
-    Supports multiple keys via GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
-    Falls back to single GEMINI_API_KEY for backward compatibility.
+    Resolution order:
+      1. GEMINI_API_KEY (your existing/primary key)
+      2. GEMINI_API_KEY_1, GEMINI_API_KEY_2, ... (additional keys)
+
+    GEMINI_API_KEY is always checked first so existing users don't
+    need to rename their env var when adding extra keys.
+    Numbered keys do NOT need to be sequential — _2 and _3 will be
+    picked up even if _1 is missing.
     """
     keys = []
-    for i in itertools.count(1):
+
+    # Always include GEMINI_API_KEY first (if set)
+    primary = os.environ.get("GEMINI_API_KEY")
+    if primary:
+        keys.append(primary)
+
+    # Scan numbered keys — no gap requirement, up to 20
+    for i in range(1, 21):
         key = os.environ.get(f"GEMINI_API_KEY_{i}")
         if key:
             keys.append(key)
-        else:
-            break
-    if not keys:
-        single = os.environ.get("GEMINI_API_KEY")
-        if single:
-            keys = [single]
+
     return keys
 
 
