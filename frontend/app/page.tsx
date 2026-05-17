@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
 import type { UPSCStory, ExamPlaybook } from "@/types/story"
 import { fetchUPSCStories } from "@/lib/api"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -18,7 +17,6 @@ import {
   BookMarked,
   Star,
   TrendingUp,
-  RefreshCw,
   Search,
   Layers,
   ChevronDown,
@@ -471,22 +469,16 @@ export default function Home() {
           </Card>
         </div>
 
-        {/* Relevance bar + refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs text-muted-foreground/60">
-          <div className="flex items-center gap-2 flex-1">
-            <span className="whitespace-nowrap">Avg. Relevance</span>
-            <div className="flex-1 h-2 rounded-full bg-border/50 overflow-hidden max-w-[200px]">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-500 to-green-500 transition-all duration-1000"
-                style={{ width: `${Math.round(avgRelevance * 100)}%` }}
-              />
-            </div>
-            <span className="font-mono text-foreground/70 tabular-nums">{Math.round(avgRelevance * 100)}%</span>
+        {/* Relevance bar */}
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
+          <span className="whitespace-nowrap">Avg. Relevance</span>
+          <div className="flex-1 h-2 rounded-full bg-border/50 overflow-hidden max-w-[200px]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-500 to-green-500 transition-all duration-1000"
+              style={{ width: `${Math.round(avgRelevance * 100)}%` }}
+            />
           </div>
-          <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="h-8 sm:h-7 text-[10px] self-start sm:self-auto">
-            <RefreshCw className={`h-3 w-3 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <span className="font-mono text-foreground/70 tabular-nums">{Math.round(avgRelevance * 100)}%</span>
         </div>
 
         {/* Search */}

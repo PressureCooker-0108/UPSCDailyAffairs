@@ -114,10 +114,15 @@ def run_pipeline() -> None:
                 stories = summarize_stories(filtered_stories)
 
             # 9. Gemini-powered exam intelligence (for high-priority stories)
-            # Rate-limited to stay within free tier (60 req/min for gemini-2.0-flash)
+            # Proactive throttling: 13s delay between stories to stay within
+            # Gemini 2.0 Flash free tier limit of 5 RPM (~4.6 req/min).
+            # The delay is applied BEFORE the API call so we never burst past
+            # the quota. Additionally, each story that gets 429'd will use
+            # exponential backoff (6s, 12s, 24s) inside generate_exam_playbook.
+            #
             # First, load any existing playbooks so we can skip re-generation
             existing_playbooks = get_existing_playbooks()
-            for story in stories:
+            for i, story in enumerate(stories):
                 rel_score = story.get("relevance_score", 0)
                 if rel_score >= GEMINI_RELEVANCE_THRESHOLD:
                     # Check if this story already has a playbook in the DB
@@ -127,7 +132,10 @@ def run_pipeline() -> None:
                         logger.info(f"[GEMINI] Reused existing playbook for: {story['title'][:60]}")
                         continue
 
-                    time.sleep(4.0)  # ~15 req/min, within Gemini free tier rate limit
+                    # Proactive delay before the API call (skip on first story)
+                    if i > 0:
+                        time.sleep(13.0)
+
                     try:
                         playbook = generate_exam_playbook(
                             headline=story["title"],

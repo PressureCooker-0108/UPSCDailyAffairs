@@ -16,7 +16,7 @@ Gemini NEVER:
 
 Uses:
   - httpx (REST API, NOT Google SDK)
-  - gemini-2.0-flash model
+  - gemini-2.5-flash model (primary)
   - temperature = 0.2, maxOutputTokens = 500
 """
 
@@ -32,11 +32,12 @@ import httpx
 logger = logging.getLogger(__name__)
 
 # Gemini API configuration
-_GEMINI_MODEL = "gemini-2.0-flash"
-_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash"]
-_GEMINI_RETRY_DELAY = 3.0  # seconds to wait before retrying a 429'd model
+_GEMINI_MODEL = "gemini-2.5-flash"
+_GEMINI_FALLBACK_MODELS = ["gemini-2.5-flash-lite", "gemini-2.0-flash"]
 _GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
-_GEMINI_MAX_RETRIES = 2  # max retries per model on 429
+# Exponential backoff for 429 retries: 6s, 12s, 24s (3 retries max per model)
+_GEMINI_BACKOFF_BASE = 6.0  # starting backoff in seconds
+_GEMINI_MAX_RETRIES = 3  # max retries per model on 429
 _GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1/models"
 _GEMINI_TEMPERATURE = 0.2
 _GEMINI_MAX_TOKENS = 500
@@ -262,15 +263,17 @@ def generate_exam_playbook(
                         response = client.post(url, json=payload)
 
                     if response.status_code == 429:
-                        # Rate limited — wait and retry same model
+                        # Rate limited — exponential backoff: 6s, 12s, 24s
                         last_error = f"429 - {response.text[:200]}"
                         retries += 1
                         if retries <= _GEMINI_MAX_RETRIES:
+                            backoff = _GEMINI_BACKOFF_BASE * (2 ** (retries - 1))
                             logger.warning(
-                                f"[GEMINI] Model {model} rate limited, "
-                                f"sleeping {_GEMINI_RETRY_DELAY}s before retry..."
+                                f"[GEMINI] Model {model} rate limited (attempt {retries}/"
+                                f"{_GEMINI_MAX_RETRIES}), "
+                                f"backing off {backoff}s before retry..."
                             )
-                            time.sleep(_GEMINI_RETRY_DELAY)
+                            time.sleep(backoff)
                             continue
                         else:
                             break

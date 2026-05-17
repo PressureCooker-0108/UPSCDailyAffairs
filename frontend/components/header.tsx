@@ -1,47 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Globe, Sun, Moon, Timer, GraduationCap } from "lucide-react"
+import { Globe, Sun, Moon, GraduationCap } from "lucide-react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { toast } from "sonner"
 
 export function Header() {
-  const [refreshing, setRefreshing] = useState(false)
   const { theme, setTheme } = useTheme()
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8002"}/pipeline/run`, {
-        method: "POST",
-      })
-      if (res.status === 429) {
-        const body = await res.json()
-        const retryAfter = body.detail?.retry_after ?? 60
-        toast.error("Rate limited", {
-          description: `Pipeline was just run. Try again in ${Math.ceil(retryAfter)} seconds.`,
-          icon: <Timer className="h-4 w-4" />,
-          duration: 4000,
-        })
-        return
-      }
-      if (!res.ok) {
-        toast.error("Pipeline request failed", {
-          description: `Server returned ${res.status}`,
-        })
-        return
-      }
-      window.location.reload()
-    } catch {
-      toast.error("Network error", {
-        description: "Could not reach the server. Make sure the backend is running.",
-      })
-    } finally {
-      setRefreshing(false)
-    }
-  }
 
   return (
     <header className="border-b border-border sticky top-0 bg-background/80 backdrop-blur-xl z-50">
@@ -88,16 +53,6 @@ export function Header() {
             >
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="gap-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
             </Button>
           </div>
         </div>
