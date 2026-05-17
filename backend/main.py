@@ -91,6 +91,141 @@ class RateLimiter:
 _limiter = RateLimiter()
 
 
+# ── Gemini Diagnostics ──
+
+def _mask_key(key: str) -> str:
+    """Mask an API key for safe display (show first 6 + last 4 chars)."""
+    if len(key) < 12:
+        return key[:4] + "..."
+    return key[:6] + "..." + key[-4:]
+
+
+def _probe_single_key(api_key: str, model: str) -> dict:
+    """Test a single API key against a specific Gemini model."""
+    import httpx
+    from upsc_analyzer import _GEMINI_BASE_URL
+
+    url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{"text": "Reply with one word: OK"}]
+        }],
+        "generationConfig": {
+            "temperature": 0.0,
+            "maxOutputTokens": 10,
+        },
+    }
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(url, json=payload)
+        if resp.status_code == 200:
+            data = resp.json()
+            candidates = data.get("candidates", [])
+            if candidates:
+                parts = candidates[0].get("content", {}).get("parts", [])
+                text = parts[0].get("text", "") if parts else ""
+                return {"status": "ok", "response": text}
+            return {"status": "error", "code": 200, "detail": "No candidates in response"}
+        else:
+            return {"status": "error", "code": resp.status_code, "detail": resp.text[:200]}
+    except Exception as e:
+        return {"status": "error", "detail": str(e)}
+
+
+def _probe_gemini_keys(env_var_names: list[str]) -> dict:
+    """Probe Gemini models using a specific set of env var names."""
+    from upsc_analyzer import _GEMINI_MODEL, _GEMINI_FALLBACK_MODELS
+
+    models_to_try = [_GEMINI_MODEL] + _GEMINI_FALLBACK_MODELS
+    results = []
+    working_model = None
+    working_response = None
+
+    api_key = None
+    for var_name in env_var_names:
+        val = os.environ.get(var_name)
+        if val:
+            api_key = val
+            break
+
+    if not api_key:
+        return {"status": "error", "message": "No API key found in environment"}
+
+    for model in models_to_try:
+        result = _probe_single_key(api_key, model)
+        if result["status"] == "ok":
+            working_model = model
+            working_response = result["response"]
+            results.append({"model": model, "status": "ok", "response": result["response"]})
+            break
+        else:
+            results.append({"model": model, "status": "error", **{k: v for k, v in result.items() if k != "status"}})
+
+    if working_model:
+        return {
+            "status": "ok",
+            "model_used": working_model,
+            "response": working_response,
+            "api_key_set": True,
+            "all_results": results,
+        }
+    else:
+        return {
+            "status": "error",
+            "message": "No working model found",
+            "all_results": results,
+        }
+
+
+def _probe_gemini_keys_all() -> dict:
+    """Probe all detected Gemini API keys and report which ones work."""
+    from upsc_analyzer import _load_api_keys, _GEMINI_MODEL, _GEMINI_FALLBACK_MODELS
+
+    keys = _load_api_keys()
+    if not keys:
+        return {"status": "error", "message": "No GEMINI_API_KEY* variables found in environment"}
+
+    models_to_try = [_GEMINI_MODEL] + _GEMINI_FALLBACK_MODELS
+    keys_report = []
+    any_working = False
+
+    for i, key in enumerate(keys):
+        env_var = f"GEMINI_API_KEY_{i + 1}" if i > 0 else "GEMINI_API_KEY"
+        masked = _mask_key(key)
+
+        model_results = []
+        working_model = None
+        working_response = None
+
+        for model in models_to_try:
+            result = _probe_single_key(key, model)
+            if result["status"] == "ok":
+                working_model = model
+                working_response = result["response"]
+                model_results.append({"model": model, "status": "ok", "response": result["response"]})
+                any_working = True
+                break
+            else:
+                model_results.append({"model": model, "status": "error", **{k: v for k, v in result.items() if k != "status"}})
+
+        key_entry: dict = {
+            "key_index": i,
+            "env_var": env_var,
+            "masked_key": masked,
+            "results": model_results,
+        }
+        if working_model:
+            key_entry["working_model"] = working_model
+        keys_report.append(key_entry)
+
+    return {
+        "status": "ok" if any_working else "error",
+        "total_keys": len(keys),
+        "working_keys": sum(1 for k in keys_report if "working_model" in k),
+        "keys": keys_report,
+    }
+
+
 # ── Lifespan ──
 
 @asynccontextmanager
@@ -284,72 +419,14 @@ def test_fetch():
 
 @app.get("/pipeline/test-gemini")
 def test_gemini():
-    """Probe multiple Gemini models to find one that works."""
-    try:
-        from upsc_analyzer import _get_api_key
-        api_key = _get_api_key()
-        if not api_key:
-            return {"status": "error", "message": "GEMINI_API_KEY not set in environment"}
+    """Probe multiple Gemini models with the primary API key."""
+    return _probe_gemini_keys(["GEMINI_API_KEY"])
 
-        import httpx
-        from upsc_analyzer import _GEMINI_BASE_URL, _GEMINI_TIMEOUT_SECONDS
 
-        models_to_try = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-flash",
-            "gemini-2.5-flash-preview-05-14",
-        ]
-
-        results = []
-        working_model = None
-        working_response = None
-
-        for model in models_to_try:
-            url = f"{_GEMINI_BASE_URL}/{model}:generateContent?key={api_key}"
-            payload = {
-                "contents": [{
-                    "parts": [{"text": "Reply with one word: OK"}]
-                }],
-                "generationConfig": {
-                    "temperature": 0.0,
-                    "maxOutputTokens": 10,
-                },
-            }
-            try:
-                with httpx.Client(timeout=10.0) as client:
-                    resp = client.post(url, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        text = parts[0].get("text", "") if parts else ""
-                        working_model = model
-                        working_response = text
-                        results.append({"model": model, "status": "ok", "response": text})
-                        break
-                else:
-                    results.append({"model": model, "status": "error", "code": resp.status_code, "detail": resp.text[:200]})
-            except Exception as e:
-                results.append({"model": model, "status": "error", "detail": str(e)})
-
-        if working_model:
-            return {
-                "status": "ok",
-                "model_used": working_model,
-                "response": working_response,
-                "api_key_set": True,
-                "all_results": results,
-            }
-        else:
-            return {
-                "status": "error",
-                "message": "No working model found",
-                "all_results": results,
-            }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+@app.get("/pipeline/test-gemini-keys")
+def test_gemini_keys():
+    """List all detected Gemini API keys and test each one."""
+    return _probe_gemini_keys_all()
 
 
 @app.get("/pipeline/db-status")
