@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 # Gemini API configuration
 _GEMINI_MODEL = "gemini-2.0-flash"
-_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite"]
+_GEMINI_FALLBACK_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash"]
 _GEMINI_RETRY_DELAY = 3.0  # seconds to wait before retrying a 429'd model
 _GEMINI_FALLBACK_DELAY = 1.0  # seconds to wait before trying the next fallback
 _GEMINI_MAX_RETRIES = 2  # max retries per model on 429
