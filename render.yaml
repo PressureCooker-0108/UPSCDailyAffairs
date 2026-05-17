@@ -18,7 +18,7 @@ services:
       - key: AI_FREE_TIER_RUN_CAP
         value: "20"
       - key: CORS_ORIGINS
-        value: "https://your-frontend.vercel.app"  # Change to your actual frontend URL
+        value: "https://upsc-daily-affairs.vercel.app"
       - key: LOG_LEVEL
         value: "INFO"
     healthCheckPath: /
