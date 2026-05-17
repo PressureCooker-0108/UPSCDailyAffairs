@@ -37,7 +37,7 @@ _GEMINI_MAX_TOKENS = 500
 _GEMINI_TIMEOUT_SECONDS = 15.0
 
 # Threshold — only process stories with relevance >= this
-GEMINI_RELEVANCE_THRESHOLD = 0.72
+GEMINI_RELEVANCE_THRESHOLD = 0.5
 
 
 def _get_api_key() -> str | None:
