@@ -7,6 +7,7 @@ import type { UPSCStory, ExamPlaybook } from "@/types/story"
 import { fetchUPSCStories } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   GraduationCap,
   BookOpen,
@@ -20,8 +21,6 @@ import {
   TrendingUp,
   Search,
   Layers,
-  ChevronDown,
-  ChevronUp,
   Globe,
   Zap,
   Gavel,
@@ -33,43 +32,60 @@ import {
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
-const GS_META: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
-  "GS Paper I": {
-    label: "GS I",
-    icon: <Landmark className="h-3.5 w-3.5" />,
+const SECTOR_META: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
+  "Market": {
+    label: "Market",
+    icon: <TrendingUp className="h-3.5 w-3.5" />,
     color: "text-blue-400 bg-blue-500/10 border-blue-500/20",
     border: "border-l-blue-500/40",
   },
-  "GS Paper II": {
-    label: "GS II",
-    icon: <Gavel className="h-3.5 w-3.5" />,
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    border: "border-l-emerald-500/40",
-  },
-  "GS Paper III": {
-    label: "GS III",
-    icon: <Cog className="h-3.5 w-3.5" />,
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    border: "border-l-amber-500/40",
-  },
-  "GS Paper IV": {
-    label: "GS IV",
-    icon: <Users className="h-3.5 w-3.5" />,
-    color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-    border: "border-l-purple-500/40",
-  },
-  "Prelims": {
-    label: "Prelims",
-    icon: <Target className="h-3.5 w-3.5" />,
+  "Geopolitics": {
+    label: "Geopolitics",
+    icon: <Globe className="h-3.5 w-3.5" />,
     color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
     border: "border-l-rose-500/40",
   },
-  "Unmapped": {
-    label: "General",
-    icon: <Globe className="h-3.5 w-3.5" />,
+  "Tech": {
+    label: "Tech",
+    icon: <Zap className="h-3.5 w-3.5" />,
+    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    border: "border-l-emerald-500/40",
+  },
+  "Politics": {
+    label: "Politics",
+    icon: <Landmark className="h-3.5 w-3.5" />,
+    color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+    border: "border-l-purple-500/40",
+  },
+  "Economy": {
+    label: "Economy",
+    icon: <TrendingUp className="h-3.5 w-3.5" />,
+    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    border: "border-l-amber-500/40",
+  },
+  "Environment": {
+    label: "Environment",
+    icon: <Leaf className="h-3.5 w-3.5" />,
+    color: "text-green-400 bg-green-500/10 border-green-500/20",
+    border: "border-l-green-500/40",
+  },
+  "Other": {
+    label: "Other",
+    icon: <Layers className="h-3.5 w-3.5" />,
     color: "text-slate-400 bg-slate-500/10 border-slate-500/20",
     border: "border-l-slate-500/40",
   },
+}
+
+function getSectorMeta(sector: string) {
+  const match = Object.keys(SECTOR_META).find(k => k.toLowerCase() === sector.toLowerCase())
+  if (match) return SECTOR_META[match]
+  return {
+    label: sector.charAt(0).toUpperCase() + sector.slice(1),
+    icon: <Layers className="h-3.5 w-3.5" />,
+    color: "text-slate-400 bg-slate-500/10 border-slate-500/20",
+    border: "border-l-slate-500/40",
+  }
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -119,170 +135,229 @@ function ScoreBar({ label, value, maxWidth = 80 }: { label: string; value: numbe
   )
 }
 
-function ExamPlaybookCard({ playbook }: { playbook: ExamPlaybook }) {
-  const [expanded, setExpanded] = useState(false)
+function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
+  const sector = story.sectors && story.sectors.length > 0 ? story.sectors[0] : "Other"
+  const meta = getSectorMeta(sector)
+  const priority = getPriorityLabel(story.priority_score || 0)
+
   return (
-    <div className="mt-3 rounded-lg border border-amber-500/15 bg-amber-500/5 overflow-hidden">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2.5 text-xs font-medium text-amber-400/80 hover:text-amber-300 active:text-amber-200 transition-colors min-h-[36px]"
-      >
-        <span className="flex items-center gap-1.5">
-          <BrainCircuit className="h-3.5 w-3.5 shrink-0" />
-          Exam Playbook
-        </span>
-        {expanded ? <ChevronUp className="h-3 w-3 shrink-0" /> : <ChevronDown className="h-3 w-3 shrink-0" />}
-      </button>
-      {expanded && (
-        <div className="px-3 pb-3 space-y-3 text-xs">
-          <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
-            <div className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">Prelims Angle</span>
-              <p className="text-foreground/80 leading-relaxed text-[11px] sm:text-xs">{playbook.prelims_angle}</p>
+    <Dialog>
+      <DialogTrigger asChild>
+        <div
+          className={cn(
+            "group relative rounded-xl border border-border/50 bg-card transition-all duration-300 hover:shadow-lg hover:border-primary/20 sm:hover:-translate-y-0.5 animate-fade-in overflow-hidden cursor-pointer text-left h-full flex flex-col",
+            meta.border,
+            "border-l-2"
+          )}
+          style={{ animationDelay: `${Math.min(index * 0.05, 1)}s` }}
+        >
+          <div className="p-3.5 sm:p-5 flex-1 flex flex-col">
+            <div className="flex items-start gap-2.5 mb-2.5">
+              <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 mt-0.5 hidden sm:inline">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xs sm:text-sm md:text-base font-semibold leading-snug text-foreground/90 group-hover:text-foreground transition-colors line-clamp-2">
+                  {story.headline}
+                </h3>
+                {story.source && story.source.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground/50 mt-1 truncate">
+                    {story.source.join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <RelevanceBadge score={story.relevance_score || 0} />
+              </div>
             </div>
-            <div className="space-y-1">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">Mains Angle</span>
-              <p className="text-foreground/80 leading-relaxed text-[11px] sm:text-xs">{playbook.mains_angle}</p>
+
+            <div className="flex flex-wrap gap-1.5 mb-2.5">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${meta.color} shrink-0`}>
+                {meta.icon}
+                {meta.label}
+              </span>
+              {story.subtopics?.slice(0, 3).map((st, i) => (
+                <span key={i} className="px-1.5 py-0.5 rounded bg-primary/5 text-muted-foreground text-[9px] border border-border/30 shrink-0">
+                  {st}
+                </span>
+              ))}
+              {story.subtopics && story.subtopics.length > 3 && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] text-muted-foreground/50 shrink-0">
+                  +{story.subtopics.length - 3}
+                </span>
+              )}
             </div>
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">Probable Question</span>
-            <p className="text-foreground/90 font-medium italic leading-relaxed text-[11px] sm:text-xs">
-              &ldquo;{playbook.probable_question}&rdquo;
+
+            <p className="text-[11px] sm:text-xs text-muted-foreground/70 leading-relaxed line-clamp-2 mb-2.5 flex-1">
+              {story.summary}
             </p>
-          </div>
-          <div className="space-y-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/60 font-semibold">Static Connect</span>
-            <p className="text-foreground/70 leading-relaxed text-[11px] sm:text-xs">{playbook.static_connect}</p>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {playbook.key_terms.map((term, i) => (
-              <Badge key={i} variant="outline" className="text-[9px] px-1.5 py-0.5 h-auto text-amber-300/80 border-amber-500/20 bg-amber-500/10 font-mono">
-                {term}
-              </Badge>
-            ))}
-          </div>
-          <div className="pt-1.5 border-t border-amber-500/10">
-            <p className="text-[11px] sm:text-xs text-foreground/60 italic leading-relaxed">
-              {playbook.one_line_takeaway}
-            </p>
+
+            {story.why_it_matters && (
+              <div className="flex items-start gap-1.5 mb-2.5">
+                <Lightbulb className="h-3 w-3 text-amber-400/60 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-400/70 leading-relaxed line-clamp-1">{story.why_it_matters}</p>
+              </div>
+            )}
+
+            <div className="space-y-1 mb-2.5 mt-auto">
+              <ScoreBar label="Relevance" value={story.relevance_score || 0} />
+              <ScoreBar label="Priority" value={story.priority_score || 0} />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${PRIORITY_COLORS[priority] || PRIORITY_COLORS.low} border border-transparent`}>
+                <Star className="h-2.5 w-2.5" />
+                {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
+              </span>
+              {story.article_count && (
+                <span className="text-[9px] text-muted-foreground/40">
+                  {story.article_count} source{story.article_count !== 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      )}
-    </div>
-  )
-}
+      </DialogTrigger>
 
-function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
-  const gsMeta = GS_META[story.gs_paper] || GS_META["Unmapped"]
-  const priority = getPriorityLabel(story.priority_score || 0)
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div
-      className={cn(
-        "group relative rounded-xl border border-border/50 bg-card transition-all duration-300 hover:shadow-lg hover:border-primary/20 sm:hover:-translate-y-0.5 animate-fade-in overflow-hidden",
-        gsMeta.border,
-        "border-l-2"
-      )}
-      style={{ animationDelay: `${Math.min(index * 0.05, 1)}s` }}
-    >
-      <div className="p-3.5 sm:p-5">
-        <div className="flex items-start gap-2.5 mb-2.5">
-          <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 mt-0.5 hidden sm:inline">
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-xs sm:text-sm md:text-base font-semibold leading-snug text-foreground/90 group-hover:text-foreground transition-colors line-clamp-2">
-              {story.headline}
-            </h3>
-            {story.source && story.source.length > 0 && (
-              <p className="text-[10px] text-muted-foreground/50 mt-1 truncate">
-                {story.source.join(", ")}
-              </p>
+      <DialogContent className="max-w-[80vw] w-[80vw] h-[80vh] p-0 overflow-hidden flex flex-col md:flex-row bg-background border-border/50 shadow-2xl rounded-xl">
+        <DialogTitle className="sr-only">{story.headline}</DialogTitle>
+        
+        {/* Main Story Area (Left) */}
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8 md:border-r border-border/50">
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${meta.color}`}>
+              {meta.icon}
+              {meta.label}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium ${PRIORITY_COLORS[priority] || PRIORITY_COLORS.low} border border-transparent`}>
+              <Star className="h-3 w-3" />
+              {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
+            </span>
+          </div>
+          
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground/90 mb-6 leading-tight">
+            {story.headline}
+          </h2>
+          
+          {story.image_url && (
+            <div className="w-full h-48 sm:h-72 md:h-80 rounded-xl overflow-hidden mb-8 border border-border/50 shadow-sm">
+              <img src={story.image_url} alt={story.headline} className="w-full h-full object-cover" />
+            </div>
+          )}
+          
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-foreground/80">
+                <FileText className="h-5 w-5 text-blue-400" />
+                Original Story Summary
+              </h3>
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <p className="text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">{story.summary}</p>
+              </div>
+            </div>
+            
+            {story.why_it_matters && (
+              <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-5">
+                <h3 className="text-lg font-semibold mb-3 flex items-center gap-2 text-amber-500">
+                  <Lightbulb className="h-5 w-5" />
+                  Why it matters
+                </h3>
+                <p className="text-base text-foreground/80 leading-relaxed whitespace-pre-wrap">{story.why_it_matters}</p>
+              </div>
+            )}
+            
+            {story.url && (
+              <div className="pt-4 pb-8">
+                <a href={story.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary hover:underline font-medium">
+                  Read Original Source <Globe className="h-4 w-4" />
+                </a>
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <RelevanceBadge score={story.relevance_score || 0} />
+        </div>
+        
+        {/* Exam Analysis Area (Right) */}
+        <div className="w-full md:w-[350px] lg:w-[450px] bg-muted/30 overflow-y-auto p-6 sm:p-8 flex-shrink-0">
+          <div className="flex items-center gap-2 mb-8">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+              <BrainCircuit className="h-4 w-4 text-emerald-500" />
+            </div>
+            <h3 className="text-xl font-bold tracking-tight">AI Exam Analysis</h3>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-1.5 mb-2.5">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border ${gsMeta.color} shrink-0`}>
-            {gsMeta.icon}
-            {gsMeta.label}
-          </span>
-          {story.subtopics?.slice(0, 3).map((st, i) => (
-            <span key={i} className="px-1.5 py-0.5 rounded bg-primary/5 text-muted-foreground text-[9px] border border-border/30 shrink-0">
-              {st}
-            </span>
-          ))}
-          {story.subtopics && story.subtopics.length > 3 && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] text-muted-foreground/50 shrink-0">
-              +{story.subtopics.length - 3}
-            </span>
+          
+          {story.exam_playbook ? (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold flex items-center gap-1.5">
+                  <Target className="h-3 w-3" /> Prelims Angle
+                </span>
+                <p className="text-sm text-foreground/90 leading-relaxed">{story.exam_playbook.prelims_angle}</p>
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold flex items-center gap-1.5">
+                  <BookOpen className="h-3 w-3" /> Mains Angle
+                </span>
+                <p className="text-sm text-foreground/90 leading-relaxed">{story.exam_playbook.mains_angle}</p>
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold flex items-center gap-1.5">
+                  <Layers className="h-3 w-3" /> Static Connect
+                </span>
+                <p className="text-sm text-foreground/90 leading-relaxed">{story.exam_playbook.static_connect}</p>
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-emerald-500 font-bold flex items-center gap-1.5">
+                  <FileText className="h-3 w-3" /> Probable Question
+                </span>
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl shadow-sm">
+                  <p className="text-sm text-foreground font-medium italic">
+                    "{story.exam_playbook.probable_question}"
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-bold">Key Terms</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {story.exam_playbook.key_terms.map((term, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs font-mono bg-background shadow-sm">
+                      {term}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div className="pt-6 mt-4 border-t border-border/50">
+                <span className="text-[10px] uppercase tracking-wider text-amber-500 font-bold flex items-center gap-1.5">
+                  <Zap className="h-3 w-3" /> One Line Takeaway
+                </span>
+                <p className="mt-2 text-sm text-foreground/80 font-medium leading-relaxed italic">
+                  {story.exam_playbook.one_line_takeaway}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center text-center space-y-3 opacity-50">
+              <BrainCircuit className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm font-medium">No exam playbook available for this story.</p>
+            </div>
           )}
         </div>
-
-        <p className="text-[11px] sm:text-xs text-muted-foreground/70 leading-relaxed line-clamp-2 mb-2.5">
-          {story.summary}
-        </p>
-
-        {story.why_it_matters && (
-          <div className="flex items-start gap-1.5 mb-2.5">
-            <Lightbulb className="h-3 w-3 text-amber-400/60 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-amber-400/70 leading-relaxed">{story.why_it_matters}</p>
-          </div>
-        )}
-
-        <div className="space-y-1 mb-2.5">
-          <ScoreBar label="Relevance" value={story.relevance_score || 0} />
-          <ScoreBar label="Priority" value={story.priority_score || 0} />
-          {story.novelty_score !== undefined && (
-            <ScoreBar label="Novelty" value={story.novelty_score} />
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium ${PRIORITY_COLORS[priority] || PRIORITY_COLORS.low} border border-transparent`}>
-            <Star className="h-2.5 w-2.5" />
-            {priority.charAt(0).toUpperCase() + priority.slice(1)} Priority
-          </span>
-          {story.article_count && (
-            <span className="text-[9px] text-muted-foreground/40">
-              {story.article_count} source{story.article_count !== 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-
-        {story.exam_playbook && (
-          <>
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="mt-3 w-full py-2 rounded-md text-[10px] font-medium text-muted-foreground/50 hover:text-foreground/70 active:text-foreground/90 border border-border/30 hover:border-border/60 active:border-border/80 transition-colors min-h-[36px]"
-            >
-              {expanded ? "Hide Analysis" : "Show Exam Analysis"}
-            </button>
-            {expanded && <ExamPlaybookCard playbook={story.exam_playbook} />}
-          </>
-        )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
-function GSSection({
-  paper,
+function SectorSection({
+  sector,
   stories,
   onSelect,
   selected,
 }: {
-  paper: string
+  sector: string
   stories: UPSCStory[]
   onSelect: () => void
   selected: boolean
 }) {
-  const meta = GS_META[paper] || GS_META["Unmapped"]
+  const meta = getSectorMeta(sector)
   const avgRelevance = stories.reduce((s, st) => s + (st.relevance_score || 0), 0) / (stories.length || 1)
   const avgPriority = stories.reduce((s, st) => s + (st.priority_score || 0), 0) / (stories.length || 1)
 
@@ -302,7 +377,7 @@ function GSSection({
             {meta.icon}
             {meta.label}
           </span>
-          <span className="text-xs font-medium text-foreground/80 truncate">{paper}</span>
+          <span className="text-xs font-medium text-foreground/80 truncate capitalize">{sector}</span>
         </div>
         <span className="text-[10px] font-mono text-muted-foreground/50 shrink-0 ml-2">{stories.length} stories</span>
       </div>
@@ -326,10 +401,9 @@ function GSSection({
 
 export default function Home() {
   const [stories, setStories] = useState<UPSCStory[]>([])
-  const [gsGroups, setGsGroups] = useState<Record<string, UPSCStory[]>>({})
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedPaper, setSelectedPaper] = useState<string | null>(null)
+  const [selectedSector, setSelectedSector] = useState<string | null>(null)
   const [stats, setStats] = useState({ total: 0, analyzed: 0 })
 
   async function load() {
@@ -337,7 +411,6 @@ export default function Home() {
       setLoading(true)
       const data = await fetchUPSCStories(50, 0)
       setStories(data.stories)
-      setGsGroups(data.gs_groups)
       setStats({ total: data.total_count, analyzed: data.has_exam_playbook })
     } catch (err) {
       console.error("Failed to load UPSC stories:", err)
@@ -353,8 +426,18 @@ export default function Home() {
   }, [])
 
   const query = searchQuery.toLowerCase()
-  const displayStories = selectedPaper
-    ? (gsGroups[selectedPaper] || [])
+
+  // Group by sector
+  const sectorGroups: Record<string, UPSCStory[]> = {}
+  stories.forEach(story => {
+    const rawSector = story.sectors && story.sectors.length > 0 ? story.sectors[0] : "Other"
+    const sector = rawSector.charAt(0).toUpperCase() + rawSector.slice(1).toLowerCase()
+    if (!sectorGroups[sector]) sectorGroups[sector] = []
+    sectorGroups[sector].push(story)
+  })
+
+  const displayStories = selectedSector
+    ? (sectorGroups[selectedSector] || [])
     : stories
 
   const filteredStories = query
@@ -363,6 +446,7 @@ export default function Home() {
           s.headline.toLowerCase().includes(query) ||
           s.summary.toLowerCase().includes(query) ||
           (s.subtopics && s.subtopics.some((st) => st.toLowerCase().includes(query))) ||
+          (s.sectors && s.sectors.some((sec) => sec.toLowerCase().includes(query))) ||
           (s.gs_paper && s.gs_paper.toLowerCase().includes(query))
       )
     : displayStories
@@ -371,9 +455,7 @@ export default function Home() {
     ? stories.reduce((s, st) => s + (st.relevance_score || 0), 0) / stories.length
     : 0
   const highPriorityCount = stories.filter((s) => (s.priority_score || 0) >= 0.6).length
-  const papersWithStories = Object.keys(gsGroups).length
-
-  const paperOrder = ["GS Paper I", "GS Paper II", "GS Paper III", "GS Paper IV", "Prelims", "Unmapped"]
+  const sectorsCount = Object.keys(sectorGroups).length
 
   if (loading && stories.length === 0) {
     return (
@@ -418,7 +500,7 @@ export default function Home() {
               UPSC Current Affairs <span className="text-amber-400">Intelligence</span>
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground/70 mt-0.5">
-              Syllabus-aware filtering · Exam-focused analysis · Priority-ranked stories
+              Sector-aware filtering · Exam-focused analysis · Priority-ranked stories
             </p>
           </div>
         </div>
@@ -440,8 +522,8 @@ export default function Home() {
             <CardContent className="p-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">GS Papers</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{papersWithStories}</p>
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Sectors</p>
+                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{sectorsCount}</p>
                 </div>
                 <Layers className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground/30 shrink-0" />
               </div>
@@ -487,35 +569,35 @@ export default function Home() {
         <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search stories, subtopics, GS papers..."
+            placeholder="Search stories, subtopics, sectors..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 text-sm w-full"
           />
         </div>
 
-        {/* GS Paper selector */}
+        {/* Sector selector */}
         <div className="-mx-4 sm:mx-0 overflow-x-auto sm:overflow-visible px-4 sm:px-0 pb-1 sm:pb-0">
           <div className="flex sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 min-w-max sm:min-w-0">
             <button
-              onClick={() => setSelectedPaper(null)}
+              onClick={() => setSelectedSector(null)}
               className={cn(
                 "rounded-xl border p-3 text-center transition-all duration-300 sm:hover:-translate-y-0.5 sm:hover:shadow-lg active:scale-[0.98] sm:active:scale-100 min-w-[120px] sm:min-w-0 w-full",
-                !selectedPaper
+                !selectedSector
                   ? "border-primary/30 bg-primary/5 shadow-md"
                   : "border-border/50 bg-card hover:border-border/80"
               )}
             >
-              <span className="text-xs font-medium text-foreground/80">All Papers</span>
+              <span className="text-xs font-medium text-foreground/80">All Sectors</span>
               <p className="text-[10px] text-muted-foreground/50 mt-1">{stories.length} stories</p>
             </button>
-            {paperOrder.filter((p) => gsGroups[p] && gsGroups[p].length > 0).map((paper) => (
-              <GSSection
-                key={paper}
-                paper={paper}
-                stories={gsGroups[paper]}
-                onSelect={() => setSelectedPaper(selectedPaper === paper ? null : paper)}
-                selected={selectedPaper === paper}
+            {Object.keys(sectorGroups).sort().map((sector) => (
+              <SectorSection
+                key={sector}
+                sector={sector}
+                stories={sectorGroups[sector]}
+                onSelect={() => setSelectedSector(selectedSector === sector ? null : sector)}
+                selected={selectedSector === sector}
               />
             ))}
           </div>
@@ -532,7 +614,7 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-stretch">
             {filteredStories.map((story, i) => (
               <StoryCard key={`${story.headline}-${i}`} story={story} index={i} />
             ))}
@@ -549,7 +631,7 @@ export default function Home() {
               <BrainCircuit className="h-3 w-3 shrink-0" /> AI Playbook
             </span>
             <span className="flex items-center gap-1">
-              <BookOpen className="h-3 w-3 shrink-0" /> Syllabus-Aware
+              <BookOpen className="h-3 w-3 shrink-0" /> Sector-Aware
             </span>
             <span className="flex items-center gap-1">
               <Scale className="h-3 w-3 shrink-0" /> UPSC-Aligned
