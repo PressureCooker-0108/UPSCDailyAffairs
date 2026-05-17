@@ -124,18 +124,38 @@ def _paid_free_model_daily_cap() -> int:
 def _load_api_keys() -> list[str]:
     """Load all available OpenRouter API keys.
 
-    Reads OPENROUTER_API_KEYS (comma-separated list) first, then
-    falls back to OPENROUTER_API_KEY for backward compatibility.
+    Tries, in order of priority:
+      1. Individual env vars: OPEN_ROUTER_API_KEY_1, _2, _3, ... (up to 20)
+      2. Comma-separated:    OPENROUTER_API_KEYS
+      3. Single key:         OPENROUTER_API_KEY
+
     Returns an empty list if no keys are found.
     """
+    # 1. Individual numbered keys (easiest for Render dashboard)
+    numbered_keys = []
+    for i in range(1, 21):
+        key = os.environ.get(f"OPEN_ROUTER_API_KEY_{i}")
+        if key:
+            numbered_keys.append(key.strip())
+    if numbered_keys:
+        logger.info(f"[AI] Loaded {len(numbered_keys)} keys from OPEN_ROUTER_API_KEY_N vars")
+        return numbered_keys
+
+    # 2. Comma-separated list
     keys_str = os.environ.get("OPENROUTER_API_KEYS")
     if keys_str:
         keys = [k.strip() for k in keys_str.split(",") if k.strip()]
         if keys:
+            logger.info(f"[AI] Loaded {len(keys)} keys from OPENROUTER_API_KEYS")
             return keys
+
+    # 3. Single key (backward compatibility)
     single = os.environ.get("OPENROUTER_API_KEY")
     if single:
+        single = single.strip()
+        logger.info("[AI] Loaded 1 key from OPENROUTER_API_KEY")
         return [single]
+
     return []
 
 
