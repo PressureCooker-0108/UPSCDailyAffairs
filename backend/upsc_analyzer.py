@@ -16,7 +16,7 @@ Gemini NEVER:
 
 Uses:
   - httpx (REST API, NOT Google SDK)
-  - gemini-2.5-flash-lite-preview-06-17 model
+  - gemini-1.5-flash model
   - temperature = 0.2, maxOutputTokens = 500
 """
 
