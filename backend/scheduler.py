@@ -1,3 +1,4 @@
+import random
 import time
 from datetime import datetime, timezone
 
@@ -20,6 +21,11 @@ from upsc_analyzer import (
     probe_openrouter,
 )
 from ml_classifier import ml_review_verdict, is_model_loaded as ml_model_loaded
+from ml_auto_retrain import (
+    capture_feedback as ml_capture_feedback,
+    check_should_retrain as ml_check_retrain,
+    auto_retrain as ml_auto_retrain,
+)
 from models.database import (
     save_articles, save_stories,
     get_existing_playbooks,
@@ -38,6 +44,9 @@ _pipeline_status: dict = {
     "total_ai_failures": 0,
     "total_ml_bypassed": 0,
     "total_ml_uncertain": 0,
+    "total_ml_feedback_captured": 0,
+    "total_auto_retrains": 0,
+    "last_auto_retrain_result": None,
 }
 
 
@@ -73,6 +82,8 @@ def run_pipeline() -> None:
     ai_skipped_budget = 0
     ml_bypassed = 0  # Stories decided by ML, no AI review needed
     ml_uncertain = 0  # Stories where ML was unsure, fell back to AI review
+    ml_feedback_captured = 0  # ML vs AI comparisons saved for retrain
+    ml_retrain_triggered = False  # Was auto-retrain triggered after pipeline?
 
     ai_status = prepare_ai_run()
     logger.info(
@@ -231,26 +242,42 @@ def run_pipeline() -> None:
                             logger.warning(f"[ML] Review failed for '{story['title'][:60]}': {e}")
                             ml_result = None
 
+                    # ── Active Learning ──
+                    # When ML is confident, there's a small random chance we still
+                    # run AI review for ground truth. This prevents confirmation bias
+                    # where the model only learns from cases it was uncertain about.
+                    ACTIVE_LEARNING_RATE = 0.05  # 5% chance
+                    _force_ai_for_feedback = False
+
                     # If ML is confident, use its verdict and skip AI review
                     if ml_result and ml_result.get("model_loaded"):
                         ml_verdict = ml_result["verdict"]
                         ml_confidence = ml_result["confidence"]
 
                         if ml_verdict == "PASS" and ml_confidence >= 0.70:
-                            # High-confidence PASS — skip AI review, go to playbook
-                            ml_bypassed += 1
-                            story["ai_review"] = {
-                                "verdict": "PASS",
-                                "confidence": ml_confidence,
-                                "reasoning": "ML classifier — high confidence PASS",
-                                "ml_result": ml_result,
-                            }
-                            logger.info(
-                                f"[ML] PASS (conf={ml_confidence:.2f}) for "
-                                f"'{story['title'][:60]}' — skipping AI review"
-                            )
-                            # Fall through to Phase 2 (playbook) below
-                            review = story["ai_review"]
+                            # Active learning: ~5% chance we force AI review for ground truth
+                            if random.random() < ACTIVE_LEARNING_RATE:
+                                _force_ai_for_feedback = True
+                                logger.info(
+                                    f"[ML] PASS (conf={ml_confidence:.2f}) for "
+                                    f"'{story['title'][:60]}' — active learning sample, "
+                                    f"running AI review for ground truth"
+                                )
+                            else:
+                                # High-confidence PASS — skip AI review, go to playbook
+                                ml_bypassed += 1
+                                story["ai_review"] = {
+                                    "verdict": "PASS",
+                                    "confidence": ml_confidence,
+                                    "reasoning": "ML classifier — high confidence PASS",
+                                    "ml_result": ml_result,
+                                }
+                                logger.info(
+                                    f"[ML] PASS (conf={ml_confidence:.2f}) for "
+                                    f"'{story['title'][:60]}' — skipping AI review"
+                                )
+                                # Fall through to Phase 2 (playbook) below
+                                review = story["ai_review"]
                         elif ml_verdict == "REJECT" and ml_confidence >= 0.70:
                             # High-confidence REJECT — skip entirely
                             ml_bypassed += 1
@@ -274,8 +301,8 @@ def run_pipeline() -> None:
                                 f"'{story['title'][:60]}' — uncertain, falling back to AI"
                             )
 
-                    # ── Phase 1: AI Review Verdict (only if ML didn't decide) ──
-                    if not ml_result or ml_result.get("verdict") != "PASS" or ml_result.get("confidence", 0) < 0.70:
+                    # ── Phase 1: AI Review Verdict (only if ML didn't decide, or active learning) ──
+                    if _force_ai_for_feedback or not ml_result or ml_result.get("verdict") != "PASS" or ml_result.get("confidence", 0) < 0.70:
                         review = None
                         try:
                             review = generate_review_verdict(
@@ -290,6 +317,22 @@ def run_pipeline() -> None:
                             review = None
 
                         story["ai_review"] = review
+
+                        # Capture ML vs AI comparison for next retrain
+                        if review and review.get("verdict"):
+                            try:
+                                ml_capture_feedback(
+                                    story_title=story["title"],
+                                    ml_verdict=ml_result.get("verdict") if ml_result else None,
+                                    ai_verdict=review.get("verdict"),
+                                    ml_confidence=ml_result.get("confidence", 0.0) if ml_result else 0.0,
+                                    text=full_text,
+                                    gs_paper=story.get("gs_paper", ""),
+                                    subtopics=story.get("subtopics", []),
+                                )
+                                ml_feedback_captured += 1
+                            except Exception as e:
+                                logger.warning(f"[ML Feedback] Capture failed: {e}")
 
                         # If review verdict is REJECT, skip playbook entirely
                         if review and review.get("verdict") == "REJECT":
@@ -379,14 +422,42 @@ def run_pipeline() -> None:
         _pipeline_status["total_ai_failures"] += ai_failures
         _pipeline_status["total_ml_bypassed"] += ml_bypassed
         _pipeline_status["total_ml_uncertain"] += ml_uncertain
+        _pipeline_status["total_ml_feedback_captured"] += ml_feedback_captured
+
         logger.info(
             "[AI] Run summary "
             f"(eligible={ai_eligible}, cached={ai_skipped_cached}, "
             f"budget_skipped={ai_skipped_budget}, success={ai_success}, "
             f"failures={ai_failures}, used={get_ai_runtime_status()['ai_calls_used']})"
         )
-        ml_status = "not loaded" if not ml_available else f"{ml_bypassed} bypassed, {ml_uncertain} uncertain"
+        ml_status = "not loaded" if not ml_available else f"{ml_bypassed} bypassed, {ml_uncertain} uncertain, {ml_feedback_captured} feedback"
         logger.info(f"[ML] Run summary: {ml_status}")
+
+        # ── Auto-retrain check (after pipeline completes) ──
+        try:
+            if ml_check_retrain():
+                logger.info("[ML Auto-Retrain] Conditions met — starting retrain...")
+                retrain_result = ml_auto_retrain()
+                ml_retrain_triggered = True
+                if retrain_result.get("success"):
+                    _pipeline_status["total_auto_retrains"] += 1
+                    _pipeline_status["last_auto_retrain_result"] = retrain_result
+                    logger.info(
+                        f"[ML Auto-Retrain] Model retrained: "
+                        f"{retrain_result['samples']} samples, "
+                        f"accuracy={retrain_result.get('accuracy', 'N/A')}, "
+                        f"threshold={retrain_result.get('threshold', 'N/A')}"
+                    )
+                else:
+                    _pipeline_status["last_auto_retrain_result"] = retrain_result
+                    logger.warning(
+                        f"[ML Auto-Retrain] Skipped: {retrain_result.get('reason')}"
+                    )
+            else:
+                logger.debug("[ML Auto-Retrain] Conditions not yet met — skipping")
+        except Exception as e:
+            logger.warning(f"[ML Auto-Retrain] Check failed: {e}")
+
         logger.info(f"=== Pipeline complete in {elapsed:.1f}s ===")
 
     except Exception as e:

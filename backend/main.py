@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse
 
 from scheduler import run_pipeline, start_scheduler
 from upsc_analyzer import get_ai_runtime_status, probe_openrouter
+from ml_auto_retrain import get_retrain_state, auto_retrain as ml_auto_retrain
 
 # ── Logging ──
 
@@ -475,6 +476,68 @@ async def download_training_data():
         media_type="application/x-ndjson",
         headers={"Content-Disposition": "attachment; filename=training_data.jsonl"},
     )
+
+
+# ── ML Continuous Improvement ──
+
+_ML_RETRAIN_RUNNING = False
+
+
+@app.post("/ml/retrain")
+def trigger_ml_retrain():
+    """Manually trigger ML model retraining.
+
+    Fetches latest training data from prod, supplements with feedback
+    buffer (ML vs AI comparisons from recent pipeline runs), retrains
+    the model, auto-tunes the confidence threshold, and reloads it.
+
+    This is the same function called automatically by the scheduler
+    when check_should_retrain() conditions are met.
+    """
+    global _ML_RETRAIN_RUNNING
+
+    if _ML_RETRAIN_RUNNING:
+        return {"status": "already_running", "message": "Retraining is already in progress."}
+
+    remaining = _limiter.check("ml_retrain", 3600)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "error": "Rate limited",
+                "message": f"Can only retrain once per hour. Try again in {remaining:.0f} seconds.",
+                "retry_after": remaining,
+            },
+        )
+
+    _ML_RETRAIN_RUNNING = True
+
+    def _run_retrain():
+        global _ML_RETRAIN_RUNNING
+        try:
+            result = ml_auto_retrain(tune_threshold=True)
+            logger.info(f"[ML Retrain] Manual retrain result: {result}")
+        except Exception as e:
+            logger.exception(f"[ML Retrain] Failed: {e}")
+        finally:
+            _ML_RETRAIN_RUNNING = False
+
+    thread = threading.Thread(target=_run_retrain, daemon=True)
+    thread.start()
+
+    return {
+        "status": "started",
+        "message": "ML model retraining started in background. Check /ml/retrain-state to track progress.",
+    }
+
+
+@app.get("/ml/retrain-state")
+def ml_retrain_state():
+    """Get current ML auto-retrain state and model info."""
+    try:
+        return get_retrain_state()
+    except Exception as e:
+        return {"error": str(e), "message": "Failed to get ML retrain state"}
 
 
 if __name__ == "__main__":

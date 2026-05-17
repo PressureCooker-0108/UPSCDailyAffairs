@@ -39,6 +39,10 @@ DEFAULT_MODEL_PATH = Path(_BACKEND_DIR) / "ml_models" / "ml_model.joblib"
 _model_pipeline: Any = None
 _model_path_attempted: str | None = None
 
+# Dynamic confidence threshold — can be updated at runtime by auto_retrain
+# Controls how confident the ML model must be to emit a verdict vs "FLAG" (unsure)
+_CONFIDENCE_THRESHOLD: float = 0.60
+
 
 def _load_model(model_path: str | Path | None = None) -> Any:
     """Load the trained pipeline from disk.
@@ -105,9 +109,12 @@ def _build_class_text(text: str, title: str = "") -> str:
 def _verdict_from_probabilities(probs: dict[str, float]) -> tuple[str, float, dict[str, float]]:
     """Convert model probabilities to a verdict with confidence.
 
-    Uses a confidence threshold:
-      - If top class probability >= CONFIDENCE_THRESHOLD → return that class
+    Uses a dynamic confidence threshold (_CONFIDENCE_THRESHOLD module var):
+      - If top class probability >= threshold → return that class
       - Otherwise → return "FLAG" (unsure)
+
+    The threshold can be updated at runtime via set_confidence_threshold().
+    This is auto-tuned by the ml_auto_retrain system based on model accuracy.
 
     Args:
         probs: Dict mapping class labels to probabilities (must sum to 1.0)
@@ -115,8 +122,6 @@ def _verdict_from_probabilities(probs: dict[str, float]) -> tuple[str, float, di
     Returns:
         (verdict, confidence, probabilities)
     """
-    CONFIDENCE_THRESHOLD = 0.60
-
     if not probs:
         return "FLAG", 0.0, {}
 
@@ -129,10 +134,9 @@ def _verdict_from_probabilities(probs: dict[str, float]) -> tuple[str, float, di
     best_prob = probs[best_class]
 
     # Low confidence → return FLAG (let AI review decide)
-    if best_prob < CONFIDENCE_THRESHOLD:
+    if best_prob < _CONFIDENCE_THRESHOLD:
         return "FLAG", best_prob, probs
 
-    # Map "FLAG" at low confidence back to itself
     return best_class, best_prob, probs
 
 
@@ -229,6 +233,29 @@ def force_reload(model_path: str | Path | None = None) -> bool:
     return _load_model(model_path) is not None
 
 
+def get_confidence_threshold() -> float:
+    """Get the current dynamic confidence threshold."""
+    return _CONFIDENCE_THRESHOLD
+
+
+def set_confidence_threshold(threshold: float) -> None:
+    """Update the confidence threshold at runtime.
+
+    Called by ml_auto_retrain.auto_retrain() after threshold auto-tuning.
+    Affects all subsequent ml_review_verdict() calls immediately.
+
+    Args:
+        threshold: New threshold value (0.0–1.0). Clamped to [0.50, 0.95].
+    """
+    global _CONFIDENCE_THRESHOLD
+    threshold = max(0.50, min(0.95, threshold))
+    old = _CONFIDENCE_THRESHOLD
+    _CONFIDENCE_THRESHOLD = threshold
+    logger.info(
+        f"[ML Classifier] Confidence threshold: {old:.2f} → {threshold:.2f}"
+    )
+
+
 def get_model_info() -> dict[str, Any]:
     """Return diagnostic info about the loaded model."""
     pipeline = _load_model()
@@ -236,12 +263,14 @@ def get_model_info() -> dict[str, Any]:
         return {
             "loaded": False,
             "path_attempted": str(_model_path_attempted) if _model_path_attempted else str(DEFAULT_MODEL_PATH),
+            "confidence_threshold": _CONFIDENCE_THRESHOLD,
         }
 
     info: dict[str, Any] = {
         "loaded": True,
         "path": str(DEFAULT_MODEL_PATH),
         "type": type(pipeline).__name__,
+        "confidence_threshold": _CONFIDENCE_THRESHOLD,
     }
 
     if hasattr(pipeline, "classes_"):
