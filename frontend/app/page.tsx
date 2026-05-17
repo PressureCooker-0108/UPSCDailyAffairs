@@ -95,6 +95,20 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "text-slate-400 bg-slate-500/10",
 }
 
+function mapStoryToSector(story: UPSCStory): string {
+  if (story.sectors && story.sectors.length > 0) return story.sectors[0];
+  
+  const content = (story.headline + " " + story.summary + " " + (story.subtopics || []).join(" ") + " " + (story.gs_paper || "")).toLowerCase();
+  
+  if (content.includes("market") || content.includes("economy") || content.includes("bank") || content.includes("finance") || content.includes("rbi") || content.includes("inflation") || content.includes("trade") || content.includes("investment") || story.gs_paper === "GS Paper III") return "Economy";
+  if (content.includes("tech") || content.includes("ai") || content.includes("digital") || content.includes("space") || content.includes("isro") || content.includes("software") || content.includes("cyber") || content.includes("science")) return "Tech";
+  if (content.includes("geopolitics") || content.includes("international") || content.includes("foreign") || content.includes("china") || content.includes("us") || content.includes("russia") || content.includes("war") || content.includes("diplomacy") || story.gs_paper === "GS Paper II") return "Geopolitics";
+  if (content.includes("politi") || content.includes("election") || content.includes("court") || content.includes("law") || content.includes("parliament") || content.includes("governance") || content.includes("minister")) return "Politics";
+  if (content.includes("environment") || content.includes("climate") || content.includes("pollution") || content.includes("forest") || content.includes("wildlife") || content.includes("energy") || content.includes("species")) return "Environment";
+  
+  return "Other";
+}
+
 function getPriorityLabel(score: number): string {
   if (score >= 0.8) return "critical"
   if (score >= 0.6) return "high"
@@ -136,21 +150,22 @@ function ScoreBar({ label, value, maxWidth = 80 }: { label: string; value: numbe
 }
 
 function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
-  const sector = story.sectors && story.sectors.length > 0 ? story.sectors[0] : "Other"
+  const [open, setOpen] = useState(false)
+  const sector = mapStoryToSector(story)
   const meta = getSectorMeta(sector)
   const priority = getPriorityLabel(story.priority_score || 0)
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <div
-          className={cn(
-            "group relative rounded-xl border border-border/50 bg-card transition-all duration-300 hover:shadow-lg hover:border-primary/20 sm:hover:-translate-y-0.5 animate-fade-in overflow-hidden cursor-pointer text-left h-full flex flex-col",
-            meta.border,
-            "border-l-2"
-          )}
-          style={{ animationDelay: `${Math.min(index * 0.05, 1)}s` }}
-        >
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        className={cn(
+          "group relative rounded-xl border border-border/50 bg-card transition-all duration-300 hover:shadow-lg hover:border-primary/20 sm:hover:-translate-y-0.5 animate-fade-in overflow-hidden cursor-pointer text-left h-full flex flex-col",
+          meta.border,
+          "border-l-2"
+        )}
+        style={{ animationDelay: `${Math.min(index * 0.05, 1)}s` }}
+      >
           <div className="p-3.5 sm:p-5 flex-1 flex flex-col">
             <div className="flex items-start gap-2.5 mb-2.5">
               <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0 mt-0.5 hidden sm:inline">
@@ -216,10 +231,10 @@ function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
               )}
             </div>
           </div>
-        </div>
-      </DialogTrigger>
+      </div>
 
-      <DialogContent className="max-w-[80vw] w-[80vw] h-[80vh] p-0 overflow-hidden flex flex-col md:flex-row bg-background border-border/50 shadow-2xl rounded-xl">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-[95vw] w-full max-h-[90vh] h-[90vh] md:max-w-[80vw] md:w-[80vw] md:h-[80vh] p-0 overflow-hidden flex flex-col md:flex-row bg-background border-border/50 shadow-2xl rounded-xl">
         <DialogTitle className="sr-only">{story.headline}</DialogTitle>
         
         {/* Main Story Area (Left) */}
@@ -343,6 +358,7 @@ function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
         </div>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
 
@@ -430,7 +446,7 @@ export default function Home() {
   // Group by sector
   const sectorGroups: Record<string, UPSCStory[]> = {}
   stories.forEach(story => {
-    const rawSector = story.sectors && story.sectors.length > 0 ? story.sectors[0] : "Other"
+    const rawSector = mapStoryToSector(story)
     const sector = rawSector.charAt(0).toUpperCase() + rawSector.slice(1).toLowerCase()
     if (!sectorGroups[sector]) sectorGroups[sector] = []
     sectorGroups[sector].push(story)
@@ -505,65 +521,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-          <Card className="border-border/50">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Total Stories</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{stats.total}</p>
-                </div>
-                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground/30 shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">Sectors</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{sectorsCount}</p>
-                </div>
-                <Layers className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground/30 shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">High Priority</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{highPriorityCount}</p>
-                </div>
-                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-amber-400/50 shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-border/50">
-            <CardContent className="p-3 sm:p-4">
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground/50 font-semibold">AI Analyzed</p>
-                  <p className="text-xl sm:text-2xl font-bold mt-0.5">{stats.analyzed}</p>
-                </div>
-                <BrainCircuit className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400/50 shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Relevance bar */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground/60">
-          <span className="whitespace-nowrap">Avg. Relevance</span>
-          <div className="flex-1 h-2 rounded-full bg-border/50 overflow-hidden max-w-[200px]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-red-500 via-amber-500 to-green-500 transition-all duration-1000"
-              style={{ width: `${Math.round(avgRelevance * 100)}%` }}
-            />
-          </div>
-          <span className="font-mono text-foreground/70 tabular-nums">{Math.round(avgRelevance * 100)}%</span>
-        </div>
 
         {/* Search */}
         <div className="relative w-full sm:max-w-md">
