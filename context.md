@@ -10,20 +10,27 @@
 ## 2. Architecture Overview
 
 ```
-┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
-│  16+ RSS    │ ──▶ │  Backend API     │ ──▶ │  Next.js     │
-│  Sources    │     │  FastAPI +       │     │  Frontend    │
-│             │     │  PostgreSQL      │     │  (Vercel)    │
-└─────────────┘     └──────────────────┘     └──────────────┘
+┌─────────────┐     ┌──────────────────────┐     ┌──────────────┐
+│  40+ RSS    │ ──▶ │  Backend API         │ ──▶ │  Next.js     │
+│  Sources    │     │  FastAPI + PostgreSQL │     │  Frontend    │
+│             │     │                      │     │  (Vercel)    │
+└─────────────┘     └──────────────────────┘     └──────────────┘
                           │
                           ▼
-                    ┌──────────────────┐
-                    │  Pipeline (6h)   │
-                    │  Fetch → Clean   │
-                    │  → Cluster →     │
-                    │  Rank → Summarize│
-                    │  → Briefing      │
-                    └──────────────────┘
+            ┌─────────────────────────────────────┐
+            │  Pipeline (6h)                      │
+            │  Fetch → Clean → Cluster → Rank →   │
+            │  ↓                                  │
+            │  ┌─ Phase 0: ML Review (free)       │
+            │  ├─ Phase 1: AI Review (OpenRouter)  │
+            │  └─ Phase 2: Exam Playbook            │
+            │         + Market Data + Briefing      │
+            │                                      │
+            │  ┌─ Continuous Improvement Loop      │
+            │  │  Feedback → Auto-Retrain →        │
+            │  │  Threshold Tune → Active Learning │
+            │  └──────────────────────────────────│
+            └─────────────────────────────────────┘
 ```
 
 ## 3. Backend — Full File Map
@@ -31,17 +38,25 @@
 ```
 backend/
 ├── main.py                # FastAPI app, endpoints, middleware, rate limiter
-├── config.py              # RSS feed URLs, pipeline constants, topic templates
-├── scheduler.py           # APScheduler (6h interval), pipeline orchestration
+├── config.py              # RSS feed URLs, pipeline constants, topic templates, ML_RETRAIN_MODE toggle
+├── scheduler.py           # APScheduler (6h interval), pipeline orchestration, ML/AI review, auto-retrain
 ├── migrate_to_postgres.py # SQLite → PostgreSQL migration script (one-time)
 ├── start.sh               # Startup script for Render
 ├── requirements.txt       # Python dependencies
 ├── pyproject.toml         # Pytest configuration
 ├── Procfile               # Render Process file (cd backend && uvicorn main:app)
 ├── Dockerfile             # Docker build (multi-stage, slim)
+├── runtime.txt            # Python version pin (3.11.11)
+├── upsc_filter.py         # TF-IDF relevance scoring against UPSC syllabus + novelty detection
+├── upsc_analyzer.py       # AI-powered exam playbook generation via OpenRouter (GS paper, Prelims, Mains)
+├── upsc_syllabus.json     # Complete UPSC syllabus text (Prelims + Mains GS I-IV)
+├── ml_classifier.py       # LogisticRegression over TF-IDF for verdict prediction (PASS/FLAG/REJECT), dynamic threshold
+├── ml_auto_retrain.py     # Feedback capture, threshold tuning, auto-retrain orchestrator, active learning
+├── generate_training_data.py  # Batch AI review generation for ML training data
+├── train_ml_classifier.py     # CLI to train/ev al LogisticRegression from JSONL training data
 ├── models/
 │   ├── database.py        # SQLAlchemy engine, session, all CRUD functions
-│   └── models.py          # SQLAlchemy ORM models (Article, Cluster, Summary, MarketData, Briefing, SectorSummary, StoryReview)
+│   └── models.py          # SQLAlchemy ORM models (Article, Cluster, Summary, MarketData, Briefing, SectorSummary, StoryReview — stories has ai_review, exam_playbook, user_feedback, ml_bypassed columns)
 ├── services/
 │   ├── fetch_news.py      # Parallel RSS feed fetching (ThreadPoolExecutor, 8 workers)
 │   ├── clean_news.py      # HTML stripping, whitespace normalization
@@ -52,18 +67,23 @@ backend/
 │   ├── market_data.py     # yfinance parallel fetcher for WATCHLIST tickers
 │   ├── briefing.py        # Executive markdown briefing generator
 │   └── pdf_briefing.py    # FPDF-based PDF briefing generator (custom BriefingPDF class)
+├── ml_models/             # Trained ML model artifacts
+│   ├── ml_model.joblib    # Serialized LogisticRegression pipeline
+│   └── ml_model.json      # Model metadata (training date, accuracy, params)
 └── tests/
     ├── conftest.py        # Pytest fixtures (sample_articles, app, client)
     ├── test_api.py        # Integration tests for all endpoints
     ├── test_classify.py   # Sector classification unit tests
     ├── test_pipeline.py   # Pipeline smoke tests (skipped by default, real HTTP)
+    ├── test_upsc_filter.py  # UPSC TF-IDF relevance tests
+    ├── test_upsc_analyzer.py  # UPSC analyzer integration tests
     └── __init__.py
 ```
 
 ### 3a. Pipeline Data Flow (scheduler.py → `run_pipeline()`)
 
-1. **Phase 1 (Sequential):**
-   - `fetch_rss_feeds()` → 16+ RSS sources in parallel (ThreadPoolExecutor)
+1. **Phase 1 — Core Processing (sequential):**
+   - `fetch_rss_feeds()` → 40+ RSS sources in parallel (ThreadPoolExecutor)
    - `clean_articles()` → strip HTML, normalize whitespace
    - `save_articles()` → persist to DB
    - `cluster_articles()` → TF-IDF dedup → LDA topics → HDBSCAN clustering
@@ -72,9 +92,29 @@ backend/
    - `summarize_stories()` → centroid headlines + extractive summaries + "why it matters"
    - `save_stories()` → persist to DB
 
-2. **Phase 2 (Parallel — ThreadPoolExecutor):**
+2. **Phase 2 — UPSC Scoring + AI Analysis (sequential per story):**
+   - `upsc_filter.score_story()` → TF-IDF relevance score against UPSC syllabus (0.0–1.0)
+   - `detect_novel_topic()` → checks if story's topic is novel vs previous stories
+   - **Phase 2a — ML Review (free, <50ms):**
+     - `ml_review_verdict()` → LogisticRegression predicts PASS/FLAG/REJECT with confidence
+     - If confident PASS (≥ threshold) and not flagged for active learning → skip AI review, mark `ml_bypassed`
+     - **Active Learning:** 5% of confident ML PASS gets sent to AI review anyway for ground truth
+   - **Phase 2b — AI Review (OpenRouter, ~8s):**
+     - `generate_review_verdict()` → OpenRouter Owl Alpha produces verdict + reasoning + GS paper mapping
+     - `capture_feedback()` — saves ML prediction vs AI verdict to feedback buffer
+   - **Phase 2c — Exam Playbook (OpenRouter, ~10s):**
+     - `generate_exam_playbook()` → GS paper, Prelims format, Mains approach, factual accuracy check
+   - `save_story_reviews()` → persist AI reviews and playbooks to DB
+
+3. **Phase 3 — Post-Pipeline (parallel via ThreadPoolExecutor):**
    - `fetch_and_store_market_data()` → yfinance for WATCHLIST tickers
    - `generate_briefing()` → executive markdown briefing
+   - `generate_pdf_briefing()` → PDF briefing
+
+4. **Phase 4 — Auto-Retrain (post-pipeline):**
+   - `check_should_retrain()` → enough new feedback + enough time elapsed?
+   - `auto_retrain()` → fetch prod data → train new model → auto-tune threshold → save → force-reload into memory
+     - Schedule: 6h (<100) / 24h (100–500) / 144h (500+) in continuous mode; fixed 6d in scheduled mode
 
 ### 3b. Key Design Decisions (Backend)
 
@@ -110,6 +150,15 @@ backend/
 | POST | `/news/reviews` | No | Submit a story review (public, no API key required) |
 | GET | `/news/reviews` | No | Get all submitted story reviews |
 | POST | `/pipeline/run` | 600s | Trigger full pipeline. Requires `X-API-Key` if `API_KEY` is set. |
+| GET | `/pipeline/status` | No | Full pipeline status (ML, AI, budget) |
+| GET | `/pipeline/test-openrouter` | No | OpenRouter connectivity and budget probe |
+| POST | `/train-data/generate` | 600s | Batch-generate AI reviews for ML training |
+| GET | `/train-data/status` | No | Training data generation progress |
+| GET | `/train-data/latest` | No | Download latest training data JSONL |
+| POST | `/ml/retrain` | 600s | Manually trigger ML model retrain |
+| GET | `/ml/retrain-state` | No | Auto-retrain diagnostics (is_running, last_run, samples, threshold) |
+| GET | `/upsc` | No | UPSC-filtered stories with AI reviews and exam playbooks |
+| GET | `/upsc/status` | No | UPSC pipeline status and story counts |
 
 ### 3d. Middleware
 
@@ -148,6 +197,12 @@ backend/
 | sectors | String | JSON array, e.g. `["Markets","Tech"]` |
 | sector_summary | Text, nullable | Per-sector AI analysis |
 | trending_score | Float, nullable | Trending momentum |
+| upsc_score | Float, nullable | TF-IDF relevance score against UPSC syllabus (0.0–1.0) |
+| upsc_factors | String, nullable | JSON: matched topics, novelty flag, matched syllabus text |
+| ai_review | String, nullable | JSON: verdict (PASS/FLAG/REJECT), reasoning, GS paper mapping |
+| exam_playbook | String, nullable | JSON: GS paper, Prelims format, Mains approach, factual accuracy |
+| user_feedback | String, nullable | JSON: user corrections to verdict, suggested GS paper, comments |
+| ml_bypassed | Boolean, nullable | True if ML predicted confidently and AI review was skipped |
 
 ### MarketData (`market_data`)
 | Column | Type |
@@ -292,6 +347,7 @@ RootLayout (layout.tsx)
 - The root `Procfile` is required because Render's auto-detection ignores `render.yaml` settings for manually-created services
 - Render's Python native runtime auto-detects `runtime.txt` at repo root for Python version
 - Render PostgreSQL internal URLs start with `dpg-`. They don't need `sslmode=require` since connections stay within Render's network.
+- OpenRouter free-tier API has rate limits — `AI_MIN_REQUEST_INTERVAL_SECONDS` controls pacing (default 3.5s)
 
 ### Local Development
 
@@ -334,13 +390,22 @@ cd backend && python -m pytest tests/ -v -m "not smoke"
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
 | `DATABASE_URL` | For prod | `sqlite:///news.db` | PostgreSQL connection string |
-| `API_KEY` | Recommended | None | Auth for POST endpoints |
+| `OPENROUTER_API_KEY` | Recommended | None | Enables Owl Alpha AI review + exam playbook generation |
+| `API_KEY` | Optional | None | Auth for POST endpoints |
 | `CORS_ORIGINS` | For prod | `*` | Frontend URL for CORS |
+| `AI_MIN_REQUEST_INTERVAL_SECONDS` | No | `3.5` | Minimum seconds between OpenRouter requests (rate limit) |
+| `AI_FREE_TIER_RUN_CAP` | No | `20` | Max AI calls per pipeline run (budget control) |
 | `LOG_LEVEL` | No | `INFO` | DEBUG/INFO/WARNING/ERROR |
 | `LOG_FORMAT` | No | `text` | `text` or `json` |
 | `PORT` | Render sets | `8001` | Server port |
 | `_TESTING` | No | None | Set `=1` to skip scheduler in tests |
 | `NEXT_PUBLIC_API_URL` | Frontend | `http://127.0.0.1:8001` | Backend URL for frontend |
+
+**ML Retrain Mode (set in `backend/config.py`):**
+| Setting | Effect |
+|---------|--------|
+| `ML_RETRAIN_MODE = "continuous"` (default) | Scales retrain interval by model maturity: 6h → 24h → 144h |
+| `ML_RETRAIN_MODE = "scheduled"` | Fixed 72h collection window + 144h retrain interval regardless of sample count |
 
 ## 10. Key Code Patterns and Conventions
 
@@ -392,6 +457,10 @@ cd backend && python -m pytest tests/ -v -m "not smoke"
 | ✅ Error Boundary | Done | Frontend error boundary |
 | ✅ ML Bloat Removed | Done | No sentence-transformers/torch |
 | ✅ Story Reviews | Done | Public POST endpoint + frontend form |
+| ✅ ML Classifier | Done | LogisticRegression over TF-IDF, dynamic threshold |
+| ✅ AI Review Pipeline | Done | OpenRouter Owl Alpha for verdicts + playbooks |
+| ✅ Auto-Retrain | Done | Feedback capture, threshold tuning, scheduled/continuous modes |
+| ✅ Training Data | Done | Batch AI review generation for ML training |
 | ✅ CI/CD | Done | GitHub Actions (test matrix) |
 | ❌ Sentry | Missing | No error tracking in production |
 | ❌ Alembic | Missing | Uses `create_all()` on startup |
@@ -402,13 +471,22 @@ cd backend && python -m pytest tests/ -v -m "not smoke"
 
 ## 13. Recent Changes (Commit History)
 
-- `e71a7a9` — Switch to Render PostgreSQL: update connection logic and env template
-- `927b741` — Fix Render deploy: clean deps, root Procfile, security headers, error boundary
-- `09cc9bf` — Fix Render deploy: Python 3.11 native runtime, clean deps, correct start command
-- `ba02afa` — Render deployment fix
-- `9edb615` — Phase 2 + Deployment fixes
-- `b1b5df0` — Phase 1
-- `bf74444` — Limiting + heatmap added
+**_Pipeline commits (reverse chronological):_**
+| Commit | Message |
+|--------|--------|
+| `27e5da1` | Continuous ML improvement loop: auto-retrain, feedback capture, threshold tuning, active learning |
+| `27e5da1` + | ML_RETRAIN_MODE toggle: continuous ↔ scheduled (3d/6d) |
+| `ecee2be` | Train ML model on 25 AI review verdicts + fix sklearn 1.8.0 compat |
+| `a7be343` | Fix training data generator: add timeout guard and incremental saving |
+| Earlier | Pipeline fixes, Render deployment, phase 1+2, original build |
+
+**_Key architectural milestones:_**
+- **Phase 0 added** — ML pre-filter (LogisticRegression, free) bypasses expensive AI calls for confident PASS predictions
+- **Phase 1 refined** — OpenRouter Owl Alpha review with retry logic, budget caps, and rate limiting
+- **Phase 2 added** — AI-generated exam playbooks: GS paper mapping, Prelims format, Mains approach
+- **Continuous feedback** — `capture_feedback()` saves ML vs AI comparisons into feedback buffer
+- **Auto-retrain** — `check_should_retrain()` → `auto_retrain()` → `auto_tune_threshold()` → `set_confidence_threshold()`
+- **Active learning** — 5% random sample of confident ML PASS still gets AI review for ground truth
 
 ## 14. Key Dependencies
 

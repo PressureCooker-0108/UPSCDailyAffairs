@@ -62,10 +62,13 @@ This document is a comprehensive reference of the **UPSC Daily Affairs** project
 - **Speed and clarity** — designed for daily scanning, not deep reading
 
 **Key technical decisions:**
-- **Zero external ML models** — replaced sentence-transformers with TF-IDF vectors. No model downloads, instant startup, works great on news headlines (which share keywords with sector descriptions).
+- **3-tier review pipeline** — Phase 0: free ML pre-filter (LogisticRegression, <50ms). Phase 1: AI review via OpenRouter Owl Alpha (~8s). Phase 2: Exam playbook generation (~10s). Confident ML predictions skip AI review to save budget.
+- **Continuous ML improvement** — `capture_feedback()` saves ML vs AI comparisons; `auto_retrain()` retrains model on schedule; `auto_tune_threshold()` finds optimal confidence threshold.
+- **Active learning** — 5% of confident ML PASS gets AI review anyway for ground-truth feedback.
 - **Single uvicorn worker** — Render's free tier has 512MB RAM; `--workers 2` causes OOM.
 - **No pipeline on startup** — prevents OOM crash loop. Scheduler runs pipeline every 6 hours.
 - **DB-independent health check** — Render's health checker no longer crashes when DB is unreachable.
+- **Zero external ML models on critical path** — LogisticRegression over TF-IDF is trained offline, loaded at startup. No model downloads, instant startup, works in 512MB RAM.
 
 ---
 
@@ -148,13 +151,21 @@ This document is a comprehensive reference of the **UPSC Daily Affairs** project
 │
 ├── backend/                 # Python FastAPI backend
 │   ├── main.py              # API server (FastAPI app, all endpoints)
-│   ├── config.py            # RSS feed list, constants, topic templates
-│   ├── scheduler.py         # APScheduler pipeline orchestrator
+│   ├── config.py            # RSS feed list, constants, topic templates, ML_RETRAIN_MODE toggle
+│   ├── scheduler.py         # APScheduler pipeline orchestrator, ML/AI review, auto-retrain
 │   ├── requirements.txt     # Python dependencies
 │   ├── Procfile             # Render non-Docker fallback
+│   ├── runtime.txt          # Python version pin (3.11.11)
+│   ├── upsc_filter.py       # TF-IDF relevance scoring against full UPSC syllabus
+│   ├── upsc_analyzer.py     # OpenRouter-powered exam playbook generation
+│   ├── upsc_syllabus.json   # Complete UPSC Prelims + Mains GS I-IV syllabus text
+│   ├── ml_classifier.py     # LogisticRegression verdict predictor, dynamic confidence threshold
+│   ├── ml_auto_retrain.py   # Feedback capture, threshold tuning, scheduled retrain orchestrator
+│   ├── generate_training_data.py  # Batch AI review generation for ML training
+│   ├── train_ml_classifier.py     # CLI to train/eval LogisticRegression from JSONL
 │   ├── models/
 │   │   ├── database.py      # SQLAlchemy engine, CRUD operations
-│   │   └── models.py        # ORM models (Article, Cluster, Summary, etc.)
+│   │   └── models.py        # ORM models (stories has ai_review, exam_playbook, user_feedback, ml_bypassed)
 │   ├── services/
 │   │   ├── fetch_news.py    # RSS fetch with ThreadPoolExecutor (8 workers)
 │   │   ├── clean_news.py    # HTML tag stripping, whitespace normalization
@@ -165,11 +176,16 @@ This document is a comprehensive reference of the **UPSC Daily Affairs** project
 │   │   ├── market_data.py   # yfinance parallel fetcher (33 tickers)
 │   │   ├── briefing.py      # Executive Markdown briefing generator
 │   │   └── pdf_briefing.py  # PDF generation (fpdf2 library)
+│   ├── ml_models/           # Trained ML artifacts
+│   │   ├── ml_model.joblib  # Serialized LogisticRegression pipeline
+│   │   └── ml_model.json    # Model metadata (training date, accuracy, params)
 │   └── tests/
 │       ├── conftest.py      # Pytest fixtures (test DB, TestClient)
-│       ├── test_api.py      # 18 integration tests for all endpoints
-│       ├── test_classify.py # 18 unit tests for TF-IDF classification
-│       └── test_pipeline.py # 9 smoke tests with real RSS feeds
+│       ├── test_api.py      # Integration tests for all endpoints
+│       ├── test_classify.py # Unit tests for TF-IDF classification
+│       ├── test_pipeline.py # Smoke tests with real RSS feeds
+│       ├── test_upsc_filter.py  # UPSC TF-IDF relevance tests
+│       └── test_upsc_analyzer.py # UPSC analyzer integration tests
 │
 ├── frontend/                # Next.js TypeScript frontend
 │   ├── package.json         # Dependencies (Next 16, React 19, shadcn/ui)
@@ -260,6 +276,15 @@ CACHE_TTL = 300  # 5 minutes
 | POST | `/pipeline/run` | Trigger pipeline | Yes (1/60s) | No |
 | POST | `/news/reviews` | Submit story review (public) | No | No |
 | GET | `/news/reviews` | Get all submitted reviews | No | No |
+| GET | `/pipeline/status` | Full pipeline status (ML, AI, budget) | No | No |
+| GET | `/pipeline/test-openrouter` | OpenRouter connectivity probe | No | No |
+| POST | `/train-data/generate` | Batch AI reviews for ML training | Yes (1/600s) | No |
+| GET | `/train-data/status` | Training data generation progress | No | No |
+| GET | `/train-data/latest` | Download training data JSONL | No | No |
+| POST | `/ml/retrain` | Manual ML model retrain | Yes (1/600s) | No |
+| GET | `/ml/retrain-state` | Auto-retrain diagnostics | No | No |
+| GET | `/upsc` | UPSC-filtered stories with reviews + playbooks | No | No |
+| GET | `/upsc/status` | UPSC pipeline status and counts | No | No |
 
 **Health check** (`GET /`):
 ```python
@@ -308,7 +333,7 @@ Note: There's also `RSS_SOURCES` in `fetch_news.py` (36 sources with names), whi
 **Pipeline execution (`run_pipeline`):**
 
 Phase 1 — Core Processing (sequential):
-1. **Fetch:** `fetch_rss_feeds()` — 36 RSS sources, 8 parallel threads, dedup by URL
+1. **Fetch:** `fetch_rss_feeds()` — 40+ RSS sources, 8 parallel threads, dedup by URL
 2. **Clean:** `clean_articles()` — strip HTML tags, normalize whitespace
 3. **Persist:** `save_articles()` — batch insert to DB
 4. **Get recent:** `get_recent_articles(24)` — last 24 hours
@@ -318,9 +343,28 @@ Phase 1 — Core Processing (sequential):
 8. **Save stories:** `save_stories()` — batch write
 9. **Save sector summaries:** For each sector, generate and save a summary
 
-Phase 2 — Post-Pipeline (parallel via ThreadPoolExecutor):
+Phase 2 — UPSC Scoring + AI Analysis (sequential per story):
+1. **UPSC Score:** `upsc_filter.score_story()` — TF-IDF relevance against full syllabus (0.0–1.0)
+2. **Novelty Check:** `detect_novel_topic()` — checks if story topic is new vs recent stories
+3. **Phase 2a — ML Review (free, <50ms):**
+   - `ml_review_verdict()` → LogisticRegression predicts PASS/FLAG/REJECT
+   - If confident PASS (≥ dynamic threshold) and not active learning sample → skip AI review
+   - **Active Learning:** 5% chance confident ML PASS gets AI review for ground truth
+4. **Phase 2b — AI Review (OpenRouter, ~8s):**
+   - `generate_review_verdict()` → Owl Alpha: verdict + reasoning + GS paper mapping
+   - `capture_feedback()` — saves ML vs AI comparison to feedback buffer
+5. **Phase 2c — Exam Playbook (OpenRouter, ~10s):**
+   - `generate_exam_playbook()` → GS paper, Prelims format, Mains approach, factual accuracy check
+   - `save_story_reviews()` — persist ai_review and exam_playbook to DB
+
+Phase 3 — Post-Pipeline (parallel via ThreadPoolExecutor):
 - `fetch_and_store_market_data()` — yfinance for 33 tickers
 - `generate_briefing()` — Markdown executive briefing
+- `generate_pdf_briefing()` — PDF briefing
+
+Phase 4 — Auto-Retrain (post-pipeline):
+- `check_should_retrain()` — enough new feedback samples + enough time elapsed?
+- `auto_retrain()` — fetch prod data → train new model → auto-tune threshold → save → force-reload
 
 **Scheduling:** APScheduler, runs every 6 hours (first run starts 6 hours after deploy).
 
@@ -414,6 +458,12 @@ class Summary(Base):
     sectors: str             # JSON-serialized list e.g. '["Tech","Markets"]'
     sector_summary: Optional[str]
     trending_score: Optional[float]
+    upsc_score: Optional[float]         # TF-IDF relevance vs UPSC syllabus (0.0–1.0)
+    upsc_factors: Optional[str]         # JSON: matched topics, novelty flag, matched syllabus text
+    ai_review: Optional[str]            # JSON: verdict (PASS/FLAG/REJECT), reasoning, GS paper
+    exam_playbook: Optional[str]        # JSON: GS paper, Prelims format, Mains approach, factual accuracy
+    user_feedback: Optional[str]        # JSON: user corrections, suggested GS paper, comments
+    ml_bypassed: Optional[bool]         # True if ML predicted confidently → AI review skipped
 ```
 
 **Table: `market_data`**
@@ -1345,12 +1395,19 @@ Env var: `NEXT_PUBLIC_API_URL` set to Render backend URL.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `DATABASE_URL` | Production | PostgreSQL connection string (Supabase or Render PG) |
-| `API_KEY` | Recommended | Auth for POST endpoints |
+| `DATABASE_URL` | Production | PostgreSQL connection string (Render PG) |
+| `OPENROUTER_API_KEY` | Recommended | Enables Owl Alpha AI review + exam playbook generation |
+| `API_KEY` | Optional | Auth for POST endpoints |
 | `CORS_ORIGINS` | Production | Comma-separated frontend URLs |
+| `AI_MIN_REQUEST_INTERVAL_SECONDS` | No | Min seconds between OpenRouter requests (default: 3.5) |
+| `AI_FREE_TIER_RUN_CAP` | No | Max AI calls per pipeline run (default: 20) |
 | `LOG_LEVEL` | No | DEBUG/INFO/WARNING/ERROR (default: INFO) |
 | `PORT` | No | Server port (Render sets this) |
 | `NEXT_PUBLIC_API_URL` | Frontend | Backend URL for the frontend API client |
+
+**ML Retrain Mode (in backend/config.py):**
+- `ML_RETRAIN_MODE = "continuous"` — scales interval by sample count (6h → 24h → 144h)
+- `ML_RETRAIN_MODE = "scheduled"` — fixed 72h collection + 144h retrain regardless of sample count
 
 ---
 
@@ -1386,25 +1443,29 @@ Key details:
 
 2. **Duplicate RSS configs:** `config.py` has `RSS_FEEDS` (16 URLs) while `fetch_news.py` has `RSS_SOURCES` (36 named sources). The fetcher uses `RSS_SOURCES`. The `RSS_FEEDS` in config.py may be dead code.
 
+3. **Training data generation slowness:** Batch AI reviews (25+ articles) can take 15+ minutes due to OpenRouter rate limiting. The `timeout_seconds` and `_save_partial()` mitigations prevent it from hanging forever.
 
+4. **OpenRouter free-tier limits:** Free-tier AI quota is limited (~20 calls per run). The ML bypass saves calls for confident PASS predictions, but heavy pipelines may hit the budget cap.
 
-4. **OOM on startup (fixed):** The pipeline no longer runs on startup. Dashboard is empty for up to 6 hours until the scheduler fires. Manual trigger: `POST /pipeline/run`.
+5. **OOM on startup (fixed):** The pipeline no longer runs on startup. Dashboard is empty for up to 6 hours until the scheduler fires. Manual trigger: `POST /pipeline/run`.
 
-5. **Health check DB-independent (fixed):** No longer crashes when DB is unreachable.
+6. **Health check DB-independent (fixed):** No longer crashes when DB is unreachable.
 
-6. **Single uvicorn worker:** Render free tier (512MB) can't handle `--workers 2`.
+7. **Single uvicorn worker:** Render free tier (512MB) can't handle `--workers 2`.
 
-7. **Docker build context:** The Dockerfile is at the repo root, not in `backend/`. All COPY paths use `backend/` prefix. The old `backend/Dockerfile` is deprecated and marked as such.
+8. **Docker build context:** The Dockerfile is at the repo root, not in `backend/`. All COPY paths use `backend/` prefix. The old `backend/Dockerfile` is deprecated and marked as such.
 
-8. **Supabase sslmode:** The database.py engine logic auto-adds `sslmode=require` for remote Postgres URLs that don't already have it and aren't connecting to localhost.
+9. **Supabase sslmode:** The database.py engine logic auto-adds `sslmode=require` for remote Postgres URLs that don't already have it and aren't connecting to localhost.
 
-9. **No migrations:** Tables are created via `Base.metadata.create_all()` on every startup. No Alembic or migration system. Schema changes require manual migration.
+10. **No migrations:** Tables are created via `Base.metadata.create_all()` on every startup. No Alembic or migration system. Schema changes require manual migration.
 
-10. **`--only-binary :all:`:** The Dockerfile tries pre-compiled wheels first. If a package doesn't have a wheel (unlikely for Linux amd64), it falls back to source compilation which takes 10+ minutes.
+11. **`--only-binary :all:`:** The Dockerfile tries pre-compiled wheels first. If a package doesn't have a wheel (unlikely for Linux amd64), it falls back to source compilation which takes 10+ minutes.
 
-11. **Python version in CI:** The CI workflow hardcodes `PYTHON_VERSION: "3.11"` as an env var. If the Dockerfile or requirements change to a different version, the CI must be updated too.
+12. **Python version in CI:** The CI workflow hardcodes `PYTHON_VERSION: "3.11"` as an env var. If the Dockerfile or requirements change to a different version, the CI must be updated too.
 
-12. **No frontend tests:** The frontend has no test suite. No unit tests, no component tests, no e2e tests.
+13. **No frontend tests:** The frontend has no test suite. No unit tests, no component tests, no e2e tests.
+
+14. **ML model bias:** With < 100 training samples (mostly PASS), the model is skewed toward PASS predictions. Accuracy improves as more labeled samples accumulate via feedback capture.
 
 ---
 

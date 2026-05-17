@@ -4,7 +4,7 @@ UPSC current affairs intelligence frontend, built with Next.js 16, React 19, sha
 
 ## Overview
 
-This is the frontend for **UPSC Daily Affairs** — an exam-intelligence platform for UPSC Civil Services aspirants. It displays syllabus-classified current affairs stories from 40+ RSS sources, with GS paper mapping, relevance scoring, and exam playbooks.
+This is the frontend for **UPSC Daily Affairs** — an exam-intelligence platform for UPSC Civil Services aspirants. It displays syllabus-classified current affairs stories from 40+ RSS sources, with GS paper mapping, AI-generated exam verdicts (PASS/FLAG/REJECT), and full exam playbooks covering Prelims format, Mains approach, and factual accuracy.
 
 ## Tech Stack
 
@@ -24,13 +24,24 @@ This is the frontend for **UPSC Daily Affairs** — an exam-intelligence platfor
 - **SectorHeatmap** — Color-coded sector tiles with proportional sizing
 - **SectorSection** — 3-column grid linking to `/sectors/{sector}`
 - **TopStories** — Bento-grid layout for top 6 stories
-- **StoryCard** — News card with Dialog modal for details + integrated **StoryReview** form
-- **StoryReview** — Collapsible review form for users to flag incorrect sectors, rate summaries, and report missing images
+- **StoryCard** — News card with Dialog modal showing AI review verdict, GS paper mapping, exam playbook, and integrated **StoryReview** feedback form
+- **StoryReview** — Collapsible review form for users to flag incorrect verdicts, suggest corrections, rate summary quality, and report issues
 - **Header** — Sticky header with refresh, theme toggle, export (MD/JSON/PDF)
+- **ErrorBoundary** — React error boundary with retry and dev-mode stack trace
 
 ## Sectors
 
 Markets · Tech · Geopolitics · Energy · India · Sports · General
+
+## Story Review Flow
+
+Each story card shows:
+- **AI Verdict badge** — PASS (green) / FLAG (yellow) / REJECT (red)
+- **GS Paper mapping** — Paper I–IV with topic match
+- **Exam Playbook** — Prelims format, Mains approach, factual accuracy note
+- **StoryReview form** — Users can flag incorrect verdicts and suggest improvements
+
+Story reviews submitted to `POST /news/reviews` (public endpoint, no auth).
 
 ## Quick Start
 
