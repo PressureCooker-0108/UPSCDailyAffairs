@@ -473,19 +473,21 @@ def training_data_status():
         info["last_modified"] = datetime.fromtimestamp(
             latest_path.stat().st_mtime, tz=timezone.utc
         ).isoformat()
-        # Count lines
+        # Count lines and reviews in one pass
         try:
             with open(latest_path, "r") as f:
-                line_count = sum(1 for _ in f)
-            info["article_count"] = line_count
-            # Count reviews
-            with open(latest_path, "r") as f:
+                line_count = 0
                 reviews = 0
                 for line in f:
-                    entry = json.loads(line)
-                    if entry.get("ai_review"):
-                        reviews += 1
-                info["with_ai_review"] = reviews
+                    line_count += 1
+                    try:
+                        entry = json.loads(line)
+                        if entry.get("ai_review"):
+                            reviews += 1
+                    except json.JSONDecodeError:
+                        pass
+            info["article_count"] = line_count
+            info["with_ai_review"] = reviews
         except Exception:
             pass
     return info

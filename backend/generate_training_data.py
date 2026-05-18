@@ -42,7 +42,7 @@ if _BACKEND_DIR not in sys.path:
 from services.fetch_news import fetch_rss_feeds
 from upsc_filter import classify_article, score_relevance, _check_irrelevant
 from upsc_analyzer import generate_review_verdict, prepare_ai_run, get_ai_runtime_status, probe_openrouter
-from models.database import init_db, SessionLocal
+from models.database import init_db, SessionLocal, get_upsc_stories, get_reviews
 from models.models import Article
 
 
@@ -299,8 +299,6 @@ def fetch_from_db_with_ml() -> list[dict]:
     Each story becomes a training data entry with both ML prediction and AI
     ground truth — perfect for retraining the model on real pipeline data.
     """
-    from models.database import get_upsc_stories
-
     stories = get_upsc_stories(limit=500, min_relevance=0.0)
     logger.info(f"Loaded {len(stories)} stories from DB (with ML + AI data)")
 
@@ -361,9 +359,6 @@ def fetch_user_reviews() -> list[dict]:
       - user_review containing the structured feedback
       - source_db: "user_reviews"
     """
-    from models.database import get_reviews
-    init_db()
-
     reviews = get_reviews(limit=1000)
     logger.info(f"Loaded {len(reviews)} user reviews from DB")
 

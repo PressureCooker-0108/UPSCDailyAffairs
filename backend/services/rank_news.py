@@ -2,18 +2,7 @@ from loguru import logger
 import numpy as np
 from datetime import datetime, timezone
 from dateutil import parser as dateutil_parser
-from config import MAX_STORIES
-
-
-
-def _get_source_authority(source_name: str) -> float:
-    """Get authority weight for a source.
-    Checks SOURCE_WEIGHTS from config first, defaults to 0.5 for unknown sources.
-    """
-    from config import SOURCE_WEIGHTS
-    if source_name in SOURCE_WEIGHTS:
-        return SOURCE_WEIGHTS[source_name]
-    return 0.5
+from config import MAX_STORIES, get_source_weight
 
 
 def _latest_timestamp(cluster: list[dict]) -> datetime:
@@ -80,7 +69,7 @@ def rank_clusters(clusters: list[list[dict]]) -> list[dict]:
 
         # Source authority: average authority of all sources covering this story
         sources_set = {a.get("source", "Unknown") for a in cluster}
-        source_authorities = [_get_source_authority(s) for s in sources_set]
+        source_authorities = [get_source_weight(s) for s in sources_set]
         avg_authority = sum(source_authorities) / len(source_authorities) if source_authorities else 0.5
 
         # Source diversity bonus: stories covered by multiple authoritative sources are more important

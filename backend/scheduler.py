@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy.orm import Session
 from loguru import logger
 
 from services.fetch_news import fetch_rss_feeds
@@ -14,7 +13,7 @@ from services.clean_news import clean_articles
 from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
-from upsc_filter import generate_why_it_matters, score_relevance, score_novelty, record_story
+from upsc_filter import _build_cluster_text, generate_why_it_matters, score_relevance, score_novelty, record_story
 from upsc_analyzer import (
     AI_RELEVANCE_THRESHOLD,
     generate_exam_playbook,
@@ -72,16 +71,6 @@ def get_pipeline_status() -> dict:
 
 
 _scheduler = BackgroundScheduler()
-
-
-def _build_cluster_text(cluster: list[dict]) -> str:
-    """Build a combined text snippet from a cluster."""
-    parts = []
-    for a in cluster[:5]:
-        title = a.get("title", "")
-        snippet = a.get("content_snippet", "")[:150]
-        parts.append(f"{title}. {snippet}" if snippet else title)
-    return " ".join(parts)
 
 
 def run_pipeline() -> None:
