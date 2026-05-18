@@ -41,7 +41,7 @@ _model_path_attempted: str | None = None
 
 # Dynamic confidence threshold — can be updated at runtime by auto_retrain
 # Controls how confident the ML model must be to emit a verdict vs "FLAG" (unsure)
-_CONFIDENCE_THRESHOLD: float = 0.50
+_CONFIDENCE_THRESHOLD: float = 0.60
 
 
 def _load_model(model_path: str | Path | None = None) -> Any:

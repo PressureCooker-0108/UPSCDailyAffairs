@@ -37,9 +37,8 @@ _pipeline_status: dict = {
     "total_stories_processed": 0,
     "total_ai_success": 0,
     "total_ai_failures": 0,
-    "total_ml_bypassed": 0,
-    "total_ml_uncertain": 0,
-
+    "total_ml_predictions": 0,
+    "total_ai_reviews": 0,
 }
 
 
@@ -73,8 +72,7 @@ def run_pipeline() -> None:
     ai_eligible = 0
     ai_skipped_cached = 0
     ai_skipped_budget = 0
-    ml_bypassed = 0  # Stories decided by ML, no AI review needed
-    ml_uncertain = 0  # Stories where ML was unsure, fell back to AI review
+    ml_predictions = 0  # Silent ML predictions (training data collection)
     ai_status = prepare_ai_run()
     logger.info(
         "[AI] Run prepared "
@@ -175,23 +173,22 @@ def run_pipeline() -> None:
                 # 8. Summarize (only UPSC-relevant stories)
                 stories = summarize_stories(filtered_stories)
 
-            # 9. ML review + AI review verdicts + exam playbooks
-            # Three-phase processing:
-            #   Phase 0 — ML classifier (free, instant) 
-            #   Phase 1 — AI review verdict (PASS/FLAG/REJECT)
-            #   Phase 2 — Full exam playbook (only for PASS/FLAG)
+            # 9. AI review verdicts + exam playbooks + silent ML predictions
+            # Two-phase processing:
+            #   Phase 0 — ML classifier (silent, collects training data)
+            #   Phase 1 — AI review verdict (PASS/REJECT)
+            #   Phase 2 — Full exam playbook (for PASS stories)
             #
-            # ML runs FIRST as a fast gatekeeper. If the ML is confident:
-            #   - PASS with high confidence → skip AI review, go straight to playbook
-            #   - REJECT with high confidence → skip story entirely
-            # If ML is uncertain (FLAG or low confidence) → fall back to AI review.
-            #
-            # This saves API budget: ML predictions are free, AI calls cost budget.
+            # ML runs SILENTLY to collect predictions alongside AI ground truth.
+            # These ML + AI pairs are used to retrain and improve the model over time.
+            # The ML model does NOT gate what goes through — AI reviews always run.
+            # Eventually, accumulated training data will let the ML model fine-tune
+            # the TF-IDF filtering itself.
             ml_available = ml_model_loaded()
             if ml_available:
-                logger.info("[ML] ML classifier loaded — using as fast pre-filter")
+                logger.info("[ML] ML classifier loaded — running silently for training data collection")
             else:
-                logger.info("[ML] ML classifier not loaded — all stories go to AI review")
+                logger.info("[ML] ML classifier not loaded — skipping ML predictions")
 
             existing_playbooks = get_existing_playbooks()
             for story in stories:
@@ -199,16 +196,7 @@ def run_pipeline() -> None:
                 if rel_score >= AI_RELEVANCE_THRESHOLD:
                     ai_eligible += 1
 
-                    existing = existing_playbooks.get(story["title"])
-                    if existing is not None:
-                        story["exam_playbook"] = existing
-                        story["ai_review"] = {"verdict": "PASS", "reasoning": "Cached from previous run"}
-                        ai_skipped_cached += 1
-                        logger.info(f"[AI] Reused existing playbook for: {story['title'][:60]}")
-                        continue
-
-                    # ── Phase 0: ML Review (free, instant) ──
-                    # Get text for ML classifier
+                    # Build text for ML + AI review
                     cluster_text = story.get("cluster", [])
                     full_text = ""
                     if cluster_text:
@@ -221,6 +209,9 @@ def run_pipeline() -> None:
                     if not full_text:
                         full_text = story.get("summary", story.get("title", ""))
 
+                    # ── Phase 0: Silent ML Prediction (training data collection) ──
+                    # ML verdict is stored alongside AI verdict for future retraining.
+                    # Does NOT affect whether AI review runs.
                     ml_result = None
                     if ml_available:
                         try:
@@ -228,68 +219,52 @@ def run_pipeline() -> None:
                                 text=full_text,
                                 title=story.get("title", ""),
                             )
+                            if ml_result:
+                                ml_predictions += 1
+                                story["ml_prediction"] = {
+                                    "verdict": ml_result.get("verdict"),
+                                    "confidence": ml_result.get("confidence"),
+                                    "probabilities": ml_result.get("probabilities"),
+                                }
+                                logger.debug(
+                                    f"[ML] Silently predicted {ml_result['verdict']} "
+                                    f"(conf={ml_result['confidence']:.2f}) for "
+                                    f"'{story['title'][:60]}'"
+                                )
                         except Exception as e:
-                            logger.warning(f"[ML] Review failed for '{story['title'][:60]}': {e}")
-                            ml_result = None
+                            logger.warning(f"[ML] Prediction failed for '{story['title'][:60]}': {e}")
 
-                    # ── ML Verdict (free, instant pass/reject) ──
-                    # Binary model: PASS → skip AI review, go to playbook.
-                    # REJECT → skip story entirely, no AI cost.
-                    if ml_result and ml_result.get("model_loaded"):
-                        ml_verdict = ml_result["verdict"]
+                    # ── Phase 1: AI Review (always runs) ──
+                    existing = existing_playbooks.get(story["title"])
+                    if existing is not None:
+                        story["exam_playbook"] = existing
+                        story["ai_review"] = {"verdict": "PASS", "reasoning": "Cached from previous run"}
+                        ai_skipped_cached += 1
+                        logger.info(f"[AI] Reused existing playbook for: {story['title'][:60]}")
+                        continue
 
-                        if ml_verdict == "PASS":
-                            ml_bypassed += 1
-                            story["ai_review"] = {
-                                "verdict": "PASS",
-                                "confidence": ml_result["confidence"],
-                                "reasoning": "ML classifier verdict",
-                                "ml_result": ml_result,
-                            }
-                            logger.info(
-                                f"[ML] PASS (conf={ml_result['confidence']:.2f}) for "
-                                f"'{story['title'][:60]}' — skipping AI review"
-                            )
-                        else:
-                            # REJECT — skip story entirely, no AI cost
-                            ml_bypassed += 1
-                            story["ai_review"] = {
-                                "verdict": "REJECT",
-                                "confidence": ml_result["confidence"],
-                                "reasoning": "ML classifier verdict",
-                                "ml_result": ml_result,
-                            }
-                            story["exam_playbook"] = None
-                            logger.info(
-                                f"[ML] REJECT (conf={ml_result['confidence']:.2f}) for "
-                                f"'{story['title'][:60]}' — skipping story"
-                            )
-                            continue
-                    else:
-                        # ML not loaded — fall back to AI review
-                        ml_uncertain += 1
+                    review = None
+                    try:
+                        review = generate_review_verdict(
+                            headline=story["title"],
+                            full_text=full_text,
+                            gs_paper=story.get("gs_paper", ""),
+                            subtopics=story.get("subtopics", []),
+                            why_it_matters=story.get("why_it_matters", ""),
+                        )
+                    except Exception as e:
+                        logger.warning(f"[AI Review] Failed for '{story['title'][:60]}': {e}")
                         review = None
-                        try:
-                            review = generate_review_verdict(
-                                headline=story["title"],
-                                full_text=full_text,
-                                gs_paper=story.get("gs_paper", ""),
-                                subtopics=story.get("subtopics", []),
-                                why_it_matters=story.get("why_it_matters", ""),
-                            )
-                        except Exception as e:
-                            logger.warning(f"[AI Review] Failed for '{story['title'][:60]}': {e}")
-                            review = None
 
-                        story["ai_review"] = review
+                    story["ai_review"] = review
 
-                        if review and review.get("verdict") == "REJECT":
-                            story["exam_playbook"] = None
-                            logger.info(
-                                f"[AI Review] REJECTED '{story['title'][:60]}' — skipping playbook "
-                                f"(reason: {review.get('reasoning', 'N/A')[:80]})"
-                            )
-                            continue
+                    if review and review.get("verdict") == "REJECT":
+                        story["exam_playbook"] = None
+                        logger.info(
+                            f"[AI Review] REJECTED '{story['title'][:60]}' — skipping playbook "
+                            f"(reason: {review.get('reasoning', 'N/A')[:80]})"
+                        )
+                        continue
 
                     # ── Exam Playbook (for PASS stories) ──
                     runtime_status = get_ai_runtime_status()
@@ -368,8 +343,8 @@ def run_pipeline() -> None:
         _pipeline_status["total_stories_processed"] = len(filtered_stories)
         _pipeline_status["total_ai_success"] += ai_success
         _pipeline_status["total_ai_failures"] += ai_failures
-        _pipeline_status["total_ml_bypassed"] += ml_bypassed
-        _pipeline_status["total_ml_uncertain"] += ml_uncertain
+        _pipeline_status["total_ml_predictions"] += ml_predictions
+        _pipeline_status["total_ai_reviews"] += ai_success
 
         logger.info(
             "[AI] Run summary "
@@ -377,8 +352,9 @@ def run_pipeline() -> None:
             f"budget_skipped={ai_skipped_budget}, success={ai_success}, "
             f"failures={ai_failures}, used={get_ai_runtime_status()['ai_calls_used']})"
         )
-        ml_status = "not loaded" if not ml_available else f"{ml_bypassed} bypassed, {ml_uncertain} uncertain"
-        logger.info(f"[ML] Run summary: {ml_status}")
+        logger.info(f"[ML] Run summary: {ml_predictions} silent predictions made")
+        if ml_predictions > 0:
+            logger.info("[ML] Predictions stored alongside AI ground truth for future retraining")
 
         logger.info(f"=== Pipeline complete in {elapsed:.1f}s ===")
 
