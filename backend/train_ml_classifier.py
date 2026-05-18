@@ -213,7 +213,7 @@ def train_model(
 
     # TF-IDF vectorizer tuned for UPSC content
     vectorizer = TfidfVectorizer(
-        max_features=2000,
+        max_features=750,
         stop_words="english",
         sublinear_tf=True,
         ngram_range=(1, 2),
@@ -227,7 +227,7 @@ def train_model(
         solver="lbfgs",
         max_iter=1000,
         class_weight="balanced",
-        C=1.0,
+        C=0.3,
         random_state=42,
     )
 

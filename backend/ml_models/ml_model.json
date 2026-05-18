@@ -2,21 +2,29 @@
   "model_path": "C:\\Users\\Adity\\OneDrive\\Desktop\\Projects\\UPSCDailyAffairs\\backend\\ml_models\\ml_model.joblib",
   "classes": [
     "FLAG",
-    "PASS"
+    "PASS",
+    "REJECT"
   ],
   "features": [
-    "building",
-    "capacity",
-    "economic",
-    "health",
-    "heat",
-    "india",
-    "india needs",
-    "needs",
-    "public",
-    "ties",
-    "ties india",
-    "trump",
-    "war"
+    "000",
+    "10",
+    "12",
+    "16",
+    "17",
+    "18",
+    "18 result",
+    "20",
+    "20 000",
+    "2020",
+    "2024",
+    "2026",
+    "2026 indian",
+    "2026 tamil",
+    "22",
+    "22 election",
+    "30",
+    "45",
+    "50",
+    "abroad"
   ]
 }
