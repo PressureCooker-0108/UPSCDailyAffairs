@@ -2,7 +2,15 @@ from loguru import logger
 import numpy as np
 from datetime import datetime, timezone
 from dateutil import parser as dateutil_parser
-from config import MAX_STORIES, get_source_weight
+from config import (
+    MAX_STORIES,
+    RANK_RELEVANCE_WEIGHT,
+    RANK_AUTHORITY_WEIGHT,
+    RANK_NOVELTY_WEIGHT,
+    RANK_POLICY_WEIGHT,
+    RANK_SYLLABUS_WEIGHT,
+    get_source_weight,
+)
 
 
 def _latest_timestamp(cluster: list[dict]) -> datetime:
@@ -76,23 +84,13 @@ def rank_clusters(clusters: list[list[dict]]) -> list[dict]:
         unique_sources = len(sources_set)
         diversity_bonus = min(unique_sources / 5.0, 1.0)  # Cap at 5 sources
 
-        # Updated formula: more weight on authority (0.20), less on coverage
-        # Uses config constants if available, otherwise defaults
-        try:
-            from config import RANK_RELEVANCE_WEIGHT, RANK_AUTHORITY_WEIGHT, RANK_NOVELTY_WEIGHT, RANK_POLICY_WEIGHT, RANK_SYLLABUS_WEIGHT
-            # At this stage we only have coverage + recency as relevance proxy,
-            # and authority. Novelty/policy/syllabus come later.
-            # Distribute the later-stage weights proportionally across available factors.
-            avail = RANK_RELEVANCE_WEIGHT + RANK_NOVELTY_WEIGHT + RANK_POLICY_WEIGHT + RANK_SYLLABUS_WEIGHT  # = 0.80
-            coverage_w = RANK_RELEVANCE_WEIGHT + (RANK_NOVELTY_WEIGHT * 0.5)  # 0.35 + 0.075 = 0.425
-            recency_w = (RANK_NOVELTY_WEIGHT * 0.5) + (RANK_POLICY_WEIGHT * 0.5)  # 0.075 + 0.075 = 0.15
-            authority_w = RANK_AUTHORITY_WEIGHT  # 0.20
-            diversity_w = (RANK_POLICY_WEIGHT * 0.5) + RANK_SYLLABUS_WEIGHT  # 0.075 + 0.15 = 0.225
-        except ImportError:
-            coverage_w = 0.40
-            recency_w = 0.25
-            authority_w = 0.20
-            diversity_w = 0.15
+        # At this stage we only have coverage + recency as relevance proxy,
+        # and authority. Novelty/policy/syllabus come later.
+        # Distribute the later-stage weights proportionally across available factors.
+        coverage_w = RANK_RELEVANCE_WEIGHT + (RANK_NOVELTY_WEIGHT * 0.5)  # 0.35 + 0.075 = 0.425
+        recency_w = (RANK_NOVELTY_WEIGHT * 0.5) + (RANK_POLICY_WEIGHT * 0.5)  # 0.075 + 0.075 = 0.15
+        authority_w = RANK_AUTHORITY_WEIGHT  # 0.20
+        diversity_w = (RANK_POLICY_WEIGHT * 0.5) + RANK_SYLLABUS_WEIGHT  # 0.075 + 0.15 = 0.225
 
         final = (
             coverage_w * coverage

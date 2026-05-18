@@ -22,6 +22,7 @@ from scheduler import (
     get_pipeline_status,
     get_training_data_status,
     get_retrain_status,
+    get_scheduler,
 )
 from upsc_analyzer import get_ai_runtime_status, probe_openrouter
 from ml_auto_retrain import get_retrain_state, auto_retrain as ml_auto_retrain
@@ -135,6 +136,11 @@ async def lifespan(app: FastAPI):
         threading.Thread(target=run_pipeline, daemon=True).start()
         logger.info("Startup pipeline triggered in background thread")
     yield
+    # Graceful shutdown on app exit — stop scheduler jobs
+    sched = get_scheduler()
+    if sched and sched.get_jobs():
+        sched.shutdown(wait=False)
+        logger.info("Scheduler shut down gracefully")
 
 
 app = FastAPI(title="UPSC Daily Affairs", version="2.0.0", lifespan=lifespan)

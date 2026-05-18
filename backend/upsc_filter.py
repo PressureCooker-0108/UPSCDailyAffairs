@@ -32,7 +32,16 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from config import detect_content_type, get_source_metadata
+from config import (
+    detect_content_type,
+    get_source_metadata,
+    RANK_RELEVANCE_WEIGHT,
+    RANK_AUTHORITY_WEIGHT,
+    RANK_NOVELTY_WEIGHT,
+    RANK_POLICY_WEIGHT,
+    RANK_SYLLABUS_WEIGHT,
+    UPSC_FILTER_THRESHOLD,
+)
 
 
 # ──────────────────────────────────────────────
@@ -461,7 +470,7 @@ def score_relevance(
     priority_score = relevance_score * 0.6 + ca_boost * 0.3 + min(len(subtopics) * 0.05, 0.1)
 
     # Is relevant threshold
-    is_relevant = relevance_score >= 0.35
+    is_relevant = relevance_score >= UPSC_FILTER_THRESHOLD
 
     return {
         "is_relevant": is_relevant,
@@ -672,16 +681,6 @@ def process_cluster(
     # relevance×0.35 + source_authority×0.20 + novelty×0.15 + policy_impact×0.15 + syllabus_overlap×0.15
     cluster_size = len(cluster)
     size_factor = min(cluster_size / 5.0, 1.0)
-
-    # Use config weights if available, else defaults
-    try:
-        from config import RANK_RELEVANCE_WEIGHT, RANK_AUTHORITY_WEIGHT, RANK_NOVELTY_WEIGHT, RANK_POLICY_WEIGHT, RANK_SYLLABUS_WEIGHT
-    except ImportError:
-        RANK_RELEVANCE_WEIGHT = 0.50  # Relevance is king
-        RANK_AUTHORITY_WEIGHT = 0.15  # Less weight on source authority
-        RANK_NOVELTY_WEIGHT = 0.15    # Keep novelty moderate (don't penalise recombinations)
-        RANK_POLICY_WEIGHT = 0.12     # Policy impact secondary
-        RANK_SYLLABUS_WEIGHT = 0.08   # Syllabus overlap is tertiary
 
     priority_score = (
         RANK_RELEVANCE_WEIGHT * relevance["relevance_score"]

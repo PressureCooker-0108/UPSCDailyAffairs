@@ -135,36 +135,16 @@ SOURCE_METADATA = {
 }
 
 # ──────────────────────────────────────────────
-# Source Weights (for ranking formula)
+# Source Weights (derived from SOURCE_METADATA)
 # ──────────────────────────────────────────────
 # Used in rank_news.py to boost stories from authoritative UPSC sources.
 # Higher weight = more influence on final ranking score.
+# Automatically derived from each source's authority_score — single source of truth.
 # ──────────────────────────────────────────────
 
 SOURCE_WEIGHTS = {
-    "PIB": 1.0,
-    "PIB Education": 0.95,
-    "PIB Science & Tech": 0.92,
-    "PIB Culture": 0.88,
-    "PIB Finance": 0.92,
-    "PRS": 0.98,
-    "Indian Express Explained": 0.92,
-    "The Hindu Editorial": 0.92,
-    "The Hindu": 0.90,
-    "The Hindu International": 0.88,
-    "Down To Earth": 0.88,
-    "Indian Express": 0.82,
-    "BBC World": 0.85,
-    "The Guardian World": 0.82,
-    "Economic Times": 0.80,
-    "The Diplomat": 0.80,
-    "Al Jazeera": 0.78,
-    "NDTV": 0.72,
-    "Deccan Herald": 0.70,
-    "LiveMint": 0.78,
-    "Hindustan Times": 0.75,
-    "Business Standard": 0.74,
-    "ET EnergyWorld": 0.72,
+    name: meta["authority_score"]
+    for name, meta in SOURCE_METADATA.items()
 }
 
 
@@ -282,7 +262,10 @@ ML_RETRAIN_MODE = "continuous"  # "continuous" | "scheduled"
 # Pipeline Constants
 # ──────────────────────────────────────────────
 MAX_STORIES = 60
+MAX_PIPELINE_ARTICLES = 1000            # Clustering cap per pipeline run
 CLUSTER_THRESHOLD = 0.45
+UPSC_FILTER_THRESHOLD = 0.35            # upsc_filter.py relevance gate
+UPSC_PIPELINE_THRESHOLD = 0.30          # Pipeline / training-data relevance gate
 RECENCY_WEIGHT = 0.4
 COVERAGE_WEIGHT = 0.6
 

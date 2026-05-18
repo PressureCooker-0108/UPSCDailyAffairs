@@ -44,6 +44,7 @@ from upsc_filter import classify_article, score_relevance, _check_irrelevant
 from upsc_analyzer import generate_review_verdict, prepare_ai_run, get_ai_runtime_status, probe_openrouter
 from models.database import init_db, SessionLocal, get_upsc_stories, get_reviews
 from models.models import Article
+from config import UPSC_PIPELINE_THRESHOLD
 
 
 # ──────────────────────────────────────────────
@@ -311,7 +312,7 @@ def fetch_from_db_with_ml() -> list[dict]:
             "subtopics": s.get("subtopics", []),
             "confidence": s.get("priority_score", 0.0),
             "matched_criteria_count": 0,
-            "is_relevant": (s.get("relevance_score", 0) or 0) >= 0.30,
+            "is_relevant": (s.get("relevance_score", 0) or 0) >= UPSC_PIPELINE_THRESHOLD,
             "is_irrelevant_content": False,
         }
 

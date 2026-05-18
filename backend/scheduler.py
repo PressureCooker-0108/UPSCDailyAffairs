@@ -14,6 +14,7 @@ from services.cluster_news import cluster_articles
 from services.summarize_news import summarize_stories
 from services.rank_news import rank_clusters
 from upsc_filter import _build_cluster_text, generate_why_it_matters, score_relevance, score_novelty, record_story
+from config import MAX_PIPELINE_ARTICLES, UPSC_PIPELINE_THRESHOLD
 from upsc_analyzer import (
     AI_RELEVANCE_THRESHOLD,
     generate_exam_playbook,
@@ -122,10 +123,9 @@ def run_pipeline() -> None:
             recent = articles
             logger.info(f"Processing {len(recent)} articles for clustering")
 
-            MAX_ARTICLES = 1000
-            if len(recent) > MAX_ARTICLES:
-                logger.info(f"Limiting to {MAX_ARTICLES} articles for clustering (had {len(recent)})")
-                recent = recent[:MAX_ARTICLES]
+            if len(recent) > MAX_PIPELINE_ARTICLES:
+                logger.info(f"Limiting to {MAX_PIPELINE_ARTICLES} articles for clustering (had {len(recent)})")
+                recent = recent[:MAX_PIPELINE_ARTICLES]
 
             if not recent:
                 logger.warning("No recent articles to process")
@@ -172,8 +172,7 @@ def run_pipeline() -> None:
                     f"priority={upsc_result['priority_score']:.2f}, gs_paper={upsc_result['gs_paper']}")
 
             # 7. Filter low-relevance stories
-            UPSC_RELEVANCE_THRESHOLD = 0.30
-            filtered_stories = [s for s in ranked if s.get("relevance_score", 0) >= UPSC_RELEVANCE_THRESHOLD]
+            filtered_stories = [s for s in ranked if s.get("relevance_score", 0) >= UPSC_PIPELINE_THRESHOLD]
             filtered_out = len(ranked) - len(filtered_stories)
             logger.info(f"UPSC filter: kept {len(filtered_stories)} stories, filtered out {filtered_out}")
 
@@ -543,6 +542,11 @@ def get_training_data_status() -> dict:
 def get_retrain_status() -> dict:
     """Return current retrain job status."""
     return dict(_retrain_status)
+
+
+def get_scheduler():
+    """Return the APScheduler instance (for shutdown/status)."""
+    return _scheduler
 
 
 def start_scheduler():
