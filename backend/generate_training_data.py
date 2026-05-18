@@ -344,6 +344,92 @@ def fetch_from_db_with_ml() -> list[dict]:
     return results
 
 
+def fetch_user_reviews() -> list[dict]:
+    """Pull user reviews from the StoryReview table and format as training data.
+
+    User reviews provide human ground truth on:
+      - Whether a story is relevant to UPSC (is_relevant)
+      - Whether the sector mapping is correct and what the correct sector should be
+      - Whether the GS paper mapping is correct and what the correct paper should be
+      - Free-text suggestions for improvement
+
+    These are high-quality training signals because they come from human
+    judgment rather than AI — perfect for fine-tuning the ML model.
+
+    Each review becomes a training entry with:
+      - tfidf_features inferred from the story (relevance signal)
+      - user_review containing the structured feedback
+      - source_db: "user_reviews"
+    """
+    from models.database import get_reviews
+    init_db()
+
+    reviews = get_reviews(limit=1000)
+    logger.info(f"Loaded {len(reviews)} user reviews from DB")
+
+    results = []
+    for r in reviews:
+        # Build a simplified training entry from user feedback
+        # User reviews don't have TF-IDF features, but we include the
+        # feedback as training signal for downstream processing
+        is_relevant_raw = r.get("is_relevant", "")
+        sector_correct_raw = r.get("sector_correct", "")
+        gs_paper_correct_raw = r.get("gs_paper_correct", "")
+
+        # Determine a PASS/REJECT label from the user's relevance feedback
+        if is_relevant_raw == "yes":
+            user_verdict = "PASS"
+        elif is_relevant_raw == "no":
+            user_verdict = "REJECT"
+        else:
+            user_verdict = None  # No clear signal
+
+        entry = {
+            "title": r.get("story_title", ""),
+            "url": r.get("story_url", ""),
+            "source": "user_review",
+            "source_type": "user_feedback",
+            "authority_score": 1.0,  # Human feedback is gold standard
+            "text": r.get("story_title", "")[:1000],
+            "published_at": r.get("created_at", ""),
+            "tfidf_features": {
+                "relevance_score": 0.5,  # Neutral — no TF-IDF available
+                "gs_paper": r.get("suggested_gs_paper", "Unknown"),
+                "subtopics": [],
+                "confidence": 0.0,
+                "matched_criteria_count": 0,
+                "is_relevant": is_relevant_raw == "yes",
+                "is_irrelevant_content": is_relevant_raw == "no",
+            },
+            "user_review": {
+                "verdict": user_verdict,
+                "is_relevant": is_relevant_raw,
+                "sector_correct": sector_correct_raw,
+                "suggested_sector": r.get("suggested_sector"),
+                "gs_paper_correct": gs_paper_correct_raw,
+                "suggested_gs_paper": r.get("suggested_gs_paper"),
+                "suggestions": r.get("suggestions"),
+            },
+            "ai_review": {
+                "verdict": user_verdict,
+                "confidence": 1.0,
+                "reasoning": "User feedback" if user_verdict else "No clear signal",
+            } if user_verdict else None,
+            "review_generated_at": r.get("created_at"),
+            "source_db": "user_reviews",
+        }
+        results.append(entry)
+
+    with_verdict = sum(1 for r in results if r.get("ai_review"))
+    logger.info(
+        f"User reviews formatted: {len(results)} total, "
+        f"{with_verdict} with PASS/REJECT signal, "
+        f"{sum(1 for r in results if r.get('user_review', {}).get('suggested_sector'))} with sector corrections, "
+        f"{sum(1 for r in results if r.get('user_review', {}).get('suggested_gs_paper'))} with GS paper corrections"
+    )
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate AI review training data from RSS feeds",

@@ -249,14 +249,17 @@ def get_upsc(
 
 @app.post("/news/reviews")
 def submit_story_review(data: dict):
-    required = ["story_title", "correct_section", "summary_concise", "picture_available"]
-    for field in required:
-        if field not in data:
-            raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
-
     valid_values = ["yes", "no"]
+    if "story_title" not in data:
+        raise HTTPException(status_code=400, detail="Missing required field: story_title")
+
+    # Validate new core fields if present
+    for field in ["is_relevant", "sector_correct", "gs_paper_correct"]:
+        if data.get(field) and data[field].lower() not in valid_values:
+            raise HTTPException(status_code=400, detail=f"{field} must be 'yes' or 'no'")
+    # Validate legacy fields if present
     for field in ["correct_section", "summary_concise", "picture_available"]:
-        if data.get(field, "").lower() not in valid_values:
+        if data.get(field) and data[field].lower() not in valid_values:
             raise HTTPException(status_code=400, detail=f"{field} must be 'yes' or 'no'")
 
     try:
@@ -264,10 +267,18 @@ def submit_story_review(data: dict):
         review = save_review({
             "story_title": data["story_title"],
             "story_url": data.get("story_url"),
-            "correct_section": data["correct_section"],
+            # New core fields
+            "is_relevant": data.get("is_relevant", "yes"),
+            "sector_correct": data.get("sector_correct", data.get("correct_section", "yes")),
+            "suggested_sector": data.get("suggested_sector"),
+            "gs_paper_correct": data.get("gs_paper_correct", "yes"),
+            "suggested_gs_paper": data.get("suggested_gs_paper"),
+            "suggestions": data.get("suggestions"),
+            # Legacy fields (backward compat)
+            "correct_section": data.get("correct_section", data.get("sector_correct", "yes")),
             "suggested_section": data.get("suggested_section"),
-            "summary_concise": data["summary_concise"],
-            "picture_available": data["picture_available"],
+            "summary_concise": data.get("summary_concise", "yes"),
+            "picture_available": data.get("picture_available", "yes"),
             "comment": data.get("comment"),
         })
         return {"status": "ok", "review": review}

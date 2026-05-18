@@ -77,9 +77,20 @@ class StoryReview(Base):
     id = Column(String, primary_key=True, index=True)
     story_title = Column(String, nullable=False)
     story_url = Column(String, nullable=True)
-    correct_section = Column(String, nullable=False)
+
+    # Core review fields
+    is_relevant = Column(String, nullable=False)           # "yes" / "no" — is this story relevant to UPSC?
+    sector_correct = Column(String, nullable=False)        # "yes" / "no" — is the sector mapping correct?
+    suggested_sector = Column(String, nullable=True)       # If sector wrong, correct sector
+    gs_paper_correct = Column(String, nullable=False)      # "yes" / "no" — is the GS paper mapping correct?
+    suggested_gs_paper = Column(String, nullable=True)     # If paper wrong, correct paper
+    suggestions = Column(Text, nullable=True)              # Free-text suggestions
+
+    # Legacy fields (kept for backward compat)
+    correct_section = Column(String, nullable=True)
     suggested_section = Column(String, nullable=True)
-    summary_concise = Column(String, nullable=False)
-    picture_available = Column(String, nullable=False)
+    summary_concise = Column(String, nullable=True)
+    picture_available = Column(String, nullable=True)
     comment = Column(Text, nullable=True)
+
     created_at = Column(String, nullable=False)

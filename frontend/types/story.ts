@@ -39,9 +39,17 @@ export interface UPSCResponse {
 export interface StoryReview {
   story_title: string
   story_url?: string
-  correct_section: "yes" | "no"
+  // Core review fields
+  is_relevant: "yes" | "no"
+  sector_correct: "yes" | "no"
+  suggested_sector?: string
+  gs_paper_correct: "yes" | "no"
+  suggested_gs_paper?: string
+  suggestions?: string
+  // Legacy fields (kept for backward compat)
+  correct_section?: "yes" | "no"
   suggested_section?: string
-  summary_concise: "yes" | "no"
-  picture_available: "yes" | "no"
+  summary_concise?: "yes" | "no"
+  picture_available?: "yes" | "no"
   comment?: string
 }

@@ -5,10 +5,18 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8002"
 export async function submitReview(review: {
   story_title: string
   story_url?: string
-  correct_section: "yes" | "no"
+  // Core review fields
+  is_relevant: "yes" | "no"
+  sector_correct: "yes" | "no"
+  suggested_sector?: string
+  gs_paper_correct: "yes" | "no"
+  suggested_gs_paper?: string
+  suggestions?: string
+  // Legacy fields (backward compat)
+  correct_section?: "yes" | "no"
   suggested_section?: string
-  summary_concise: "yes" | "no"
-  picture_available: "yes" | "no"
+  summary_concise?: "yes" | "no"
+  picture_available?: "yes" | "no"
   comment?: string
 }): Promise<{ status: string } | null> {
   try {
@@ -59,4 +67,3 @@ export async function fetchUPSCStories(limit?: number, minRelevance?: number): P
     return { stories: [], gs_groups: {}, total_count: 0, has_exam_playbook: 0 }
   }
 }
-

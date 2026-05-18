@@ -515,10 +515,18 @@ def save_review(review_data: dict) -> dict:
             id=str(uuid4()),
             story_title=review_data["story_title"],
             story_url=review_data.get("story_url"),
-            correct_section=review_data["correct_section"],
+            # New core fields
+            is_relevant=review_data["is_relevant"],
+            sector_correct=review_data["sector_correct"],
+            suggested_sector=review_data.get("suggested_sector"),
+            gs_paper_correct=review_data["gs_paper_correct"],
+            suggested_gs_paper=review_data.get("suggested_gs_paper"),
+            suggestions=review_data.get("suggestions"),
+            # Legacy fields (optional)
+            correct_section=review_data.get("correct_section"),
             suggested_section=review_data.get("suggested_section"),
-            summary_concise=review_data["summary_concise"],
-            picture_available=review_data["picture_available"],
+            summary_concise=review_data.get("summary_concise"),
+            picture_available=review_data.get("picture_available"),
             comment=review_data.get("comment"),
             created_at=now,
         )
@@ -527,6 +535,15 @@ def save_review(review_data: dict) -> dict:
         return {
             "id": review.id,
             "story_title": review.story_title,
+            "story_url": review.story_url,
+            # New core fields
+            "is_relevant": review.is_relevant,
+            "sector_correct": review.sector_correct,
+            "suggested_sector": review.suggested_sector,
+            "gs_paper_correct": review.gs_paper_correct,
+            "suggested_gs_paper": review.suggested_gs_paper,
+            "suggestions": review.suggestions,
+            # Legacy fields
             "correct_section": review.correct_section,
             "suggested_section": review.suggested_section,
             "summary_concise": review.summary_concise,
@@ -552,6 +569,14 @@ def get_reviews(limit: int = 100) -> list[dict]:
                 "id": r.id,
                 "story_title": r.story_title,
                 "story_url": r.story_url,
+                # New core fields
+                "is_relevant": r.is_relevant,
+                "sector_correct": r.sector_correct,
+                "suggested_sector": r.suggested_sector,
+                "gs_paper_correct": r.gs_paper_correct,
+                "suggested_gs_paper": r.suggested_gs_paper,
+                "suggestions": r.suggestions,
+                # Legacy fields (backward compat)
                 "correct_section": r.correct_section,
                 "suggested_section": r.suggested_section,
                 "summary_concise": r.summary_concise,

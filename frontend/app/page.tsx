@@ -31,6 +31,7 @@ import {
 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { StoryReview } from "@/components/news/StoryReview"
 
 const SECTOR_META: Record<string, { label: string; icon: React.ReactNode; color: string; border: string }> = {
   "Market": {
@@ -289,6 +290,14 @@ function StoryCard({ story, index }: { story: UPSCStory; index: number }) {
               </div>
             )}
           </div>
+
+          {/* Story Review */}
+          <StoryReview
+            storyTitle={story.headline}
+            storyUrl={story.url}
+            currentSector={sector}
+            currentGsPaper={story.gs_paper}
+          />
         </div>
         
         {/* Exam Analysis Area (Right) */}
