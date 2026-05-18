@@ -19,6 +19,18 @@ RSS_SOURCES = [
     # ── PIB (Government Releases) ──
     {"name": "PIB", "url": "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=1", "sectors": ["India", "Governance"]},
 
+    # ── PIB Education (Ministry of Education releases) ──
+    {"name": "PIB Education", "url": "https://pib.gov.in/RssMain.aspx?ModId=8&Lang=1&Regid=1", "sectors": ["India", "Governance", "Education"]},
+
+    # ── PIB Science & Tech / Environment ──
+    {"name": "PIB Science & Tech", "url": "https://pib.gov.in/RssMain.aspx?ModId=9&Lang=1&Regid=1", "sectors": ["India", "Environment", "Science & Tech"]},
+
+    # ── PIB Culture (tourism, heritage, cultural events) ──
+    {"name": "PIB Culture", "url": "https://pib.gov.in/RssMain.aspx?ModId=10&Lang=1&Regid=1", "sectors": ["India", "Culture"]},
+
+    # ── PIB Finance & Schemes (financial inclusion, savings schemes) ──
+    {"name": "PIB Finance", "url": "https://pib.gov.in/RssMain.aspx?ModId=18&Lang=1&Regid=1", "sectors": ["India", "Governance", "Economy"]},
+
     # ── Indian Express — Explained (Policy Explainers) ──
     {"name": "Indian Express Explained", "url": "https://indianexpress.com/section/explained/feed/", "sectors": ["India", "Governance"]},
 
@@ -50,6 +62,12 @@ RSS_SOURCES = [
 
     # ── Business Standard ──
     {"name": "Business Standard", "url": "https://www.business-standard.com/rss/home_page_top_stories.rss", "sectors": ["India"]},
+
+    # ── NDTV ──
+    {"name": "NDTV", "url": "https://feeds.feedburner.com/ndtvnews-top-stories", "sectors": ["India"]},
+
+    # ── Deccan Herald ──
+    {"name": "Deccan Herald", "url": "https://www.deccanherald.com/feed", "sectors": ["India"]},
 
     # ══════ TIER 3 — Geopolitics / International Relations ══════
 
@@ -92,6 +110,10 @@ PRS_SCRAPER_CONFIG = {
 
 SOURCE_METADATA = {
     "PIB": {"type": "government", "authority_score": 1.0, "upsc_priority": "very_high"},
+    "PIB Education": {"type": "government", "authority_score": 0.95, "upsc_priority": "very_high"},
+    "PIB Science & Tech": {"type": "government", "authority_score": 0.92, "upsc_priority": "very_high"},
+    "PIB Culture": {"type": "government", "authority_score": 0.88, "upsc_priority": "high"},
+    "PIB Finance": {"type": "government", "authority_score": 0.92, "upsc_priority": "very_high"},
     "PRS": {"type": "legislative", "authority_score": 0.98, "upsc_priority": "very_high"},
     "Indian Express Explained": {"type": "explainer", "authority_score": 0.92, "upsc_priority": "very_high"},
     "The Hindu Editorial": {"type": "editorial", "authority_score": 0.92, "upsc_priority": "very_high"},
@@ -102,6 +124,8 @@ SOURCE_METADATA = {
     "Hindustan Times": {"type": "news", "authority_score": 0.75, "upsc_priority": "medium"},
     "Economic Times": {"type": "news", "authority_score": 0.80, "upsc_priority": "high"},
     "LiveMint": {"type": "news", "authority_score": 0.78, "upsc_priority": "medium"},
+    "NDTV": {"type": "news", "authority_score": 0.72, "upsc_priority": "medium"},
+    "Deccan Herald": {"type": "news", "authority_score": 0.70, "upsc_priority": "medium"},
     "Business Standard": {"type": "news", "authority_score": 0.74, "upsc_priority": "medium"},
     "ET EnergyWorld": {"type": "news", "authority_score": 0.72, "upsc_priority": "medium"},
     "BBC World": {"type": "news", "authority_score": 0.85, "upsc_priority": "medium"},
@@ -119,6 +143,10 @@ SOURCE_METADATA = {
 
 SOURCE_WEIGHTS = {
     "PIB": 1.0,
+    "PIB Education": 0.95,
+    "PIB Science & Tech": 0.92,
+    "PIB Culture": 0.88,
+    "PIB Finance": 0.92,
     "PRS": 0.98,
     "Indian Express Explained": 0.92,
     "The Hindu Editorial": 0.92,
@@ -131,6 +159,8 @@ SOURCE_WEIGHTS = {
     "Economic Times": 0.80,
     "The Diplomat": 0.80,
     "Al Jazeera": 0.78,
+    "NDTV": 0.72,
+    "Deccan Herald": 0.70,
     "LiveMint": 0.78,
     "Hindustan Times": 0.75,
     "Business Standard": 0.74,
