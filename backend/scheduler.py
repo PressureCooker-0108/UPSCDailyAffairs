@@ -1,5 +1,9 @@
+import json
+import os
+import shutil
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
@@ -39,6 +43,25 @@ _pipeline_status: dict = {
     "total_ai_failures": 0,
     "total_ml_predictions": 0,
     "total_ai_reviews": 0,
+}
+
+# ── Scheduled Job Status ──
+_training_data_status: dict = {
+    "is_running": False,
+    "last_run_start": None,
+    "last_run_end": None,
+    "last_run_duration": None,
+    "last_run_success": None,
+    "total_collections": 0,
+}
+
+_retrain_status: dict = {
+    "is_running": False,
+    "last_run_start": None,
+    "last_run_end": None,
+    "last_run_duration": None,
+    "last_run_success": None,
+    "total_retrains": 0,
 }
 
 
@@ -368,11 +391,171 @@ def run_pipeline() -> None:
         logger.info(f"=== Pipeline failed after {elapsed:.1f}s ===")
 
 
+
+def collect_training_data() -> None:
+    """Scheduled job: generate training data from pipeline-saved stories.
+
+    Runs every 2 days. Reads saved stories from the Summary table
+    (which have both ML predictions and AI review verdicts from the
+    pipeline), and packages them as training_data.jsonl for model
+    retraining. No fresh RSS fetches or OpenRouter calls — avoids
+    race conditions with the main pipeline.
+    """
+    start = time.time()
+    _training_data_status["is_running"] = True
+    _training_data_status["last_run_start"] = datetime.now(timezone.utc).isoformat()
+    logger.info("=== Training Data Collection (scheduled every 2 days) ===")
+
+    try:
+        from generate_training_data import fetch_from_db_with_ml, save_training_data
+
+        # Step 1: Read saved stories from DB (ML predictions + AI reviews)
+        stories = fetch_from_db_with_ml()
+        logger.info(f"[Train-Data] Loaded {len(stories)} stories from DB")
+
+        with_ml = sum(1 for s in stories if s.get("ml_prediction"))
+        with_ai = sum(1 for s in stories if s.get("ai_review"))
+        logger.info(f"[Train-Data] {with_ml} with ML predictions, {with_ai} with AI reviews")
+
+        if not stories:
+            logger.warning("[Train-Data] No stories found in DB — skipping")
+            _training_data_status["last_run_success"] = False
+            return
+
+        # Step 2: Save to a dated file + update latest
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        dated_path = f"/tmp/training_data_{today}.jsonl"
+        save_training_data(stories, dated_path)
+
+        latest_path = Path("/tmp/training_data.jsonl")
+        if latest_path.exists():
+            latest_path.unlink()
+        shutil.copy2(dated_path, latest_path)
+        logger.info(f"[Train-Data] Updated /tmp/training_data.jsonl ({len(stories)} stories)")
+
+        _training_data_status["last_run_success"] = True
+        _training_data_status["total_collections"] += 1
+
+    except Exception as e:
+        logger.exception(f"[Train-Data] Scheduled collection failed: {e}")
+        _training_data_status["last_run_success"] = False
+    finally:
+        elapsed = time.time() - start
+        _training_data_status["is_running"] = False
+        _training_data_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+        _training_data_status["last_run_duration"] = round(elapsed, 1)
+        logger.info(f"=== Training data collection finished in {elapsed:.1f}s ===")
+
+
+def retrain_ml_model() -> None:
+    """Scheduled job: retrain the ML model on accumulated training data.
+
+    Runs every 4 days. Uses the latest training_data.jsonl (which contains
+    fresh AI review labels collected by the 2-day scheduled collection)
+    and re-trains + re-tunes the ML classifier.
+
+    After retraining, the new model is hot-reloaded into the running
+    pipeline via force_reload() — no restart needed.
+    """
+    start = time.time()
+    _retrain_status["is_running"] = True
+    _retrain_status["last_run_start"] = datetime.now(timezone.utc).isoformat()
+    logger.info("=== ML Model Retrain (scheduled every 4 days) ===")
+
+    try:
+        from train_ml_classifier import (
+            prepare_dataset, train_model, evaluate_model, save_model
+        )
+        from ml_classifier import force_reload, set_confidence_threshold
+
+        # Read the latest training_data.jsonl directly (no API round-trip)
+        latest_path = Path("/tmp/training_data.jsonl")
+        if not latest_path.exists():
+            logger.warning("[ML Retrain] No training_data.jsonl found — skipping")
+            _retrain_status["last_run_success"] = False
+            return
+
+        with open(latest_path, encoding="utf-8") as f:
+            records = [json.loads(line) for line in f if line.strip()]
+        logger.info(f"[ML Retrain] Loaded {len(records)} records from {latest_path}")
+
+        # Filter to records with AI reviews (ground truth)
+        labeled = [r for r in records if r.get("ai_review")]
+        logger.info(f"[ML Retrain] {len(labeled)} records with AI reviews")
+
+        if len(labeled) < 10:
+            logger.warning(f"[ML Retrain] Only {len(labeled)} labeled records — need 10+ to retrain")
+            _retrain_status["last_run_success"] = False
+            return
+
+        texts, labels, class_counts = prepare_dataset(labeled, binary=True)
+        logger.info(f"[ML Retrain] Prepared {len(texts)} samples (classes: {class_counts})")
+
+        if len(texts) < 10:
+            logger.warning(f"[ML Retrain] Only {len(texts)} usable samples — need 10+")
+            _retrain_status["last_run_success"] = False
+            return
+
+        pipeline = train_model(texts, labels)
+        eval_result = evaluate_model(pipeline, texts, labels)
+        accuracy = eval_result.get("accuracy", 0.0) if eval_result else 0.0
+        logger.info(f"[ML Retrain] Accuracy: {accuracy:.4f}")
+
+        output_path = os.path.join(os.path.dirname(__file__), "ml_models", "ml_model.joblib")
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        save_model(pipeline, output_path)
+
+        loaded = force_reload(output_path)
+        logger.info(f"[ML Retrain] Model saved and reloaded: {loaded}")
+
+        # Auto-tune threshold down to 0.50, step 0.05
+        new_threshold = 0.60  # default
+        try:
+            from ml_auto_retrain import auto_tune_threshold
+            new_threshold = auto_tune_threshold(pipeline, texts, labels)
+        except Exception:
+            pass
+        set_confidence_threshold(new_threshold)
+        logger.info(f"[ML Retrain] Threshold set to: {new_threshold:.2f}")
+
+        _retrain_status["last_run_success"] = True
+        _retrain_status["total_retrains"] += 1
+
+    except Exception as e:
+        logger.exception(f"[ML Retrain] Scheduled retrain failed: {e}")
+        _retrain_status["last_run_success"] = False
+    finally:
+        elapsed = time.time() - start
+        _retrain_status["is_running"] = False
+        _retrain_status["last_run_end"] = datetime.now(timezone.utc).isoformat()
+        _retrain_status["last_run_duration"] = round(elapsed, 1)
+        logger.info(f"=== ML retrain finished in {elapsed:.1f}s ===")
+
+
+# ── Helper: expose status via API endpoints ──
+
+def get_training_data_status() -> dict:
+    """Return current training data collection status."""
+    return dict(_training_data_status)
+
+
+def get_retrain_status() -> dict:
+    """Return current retrain job status."""
+    return dict(_retrain_status)
+
+
 def start_scheduler():
-    """Start the APScheduler to run pipeline every 6 hours."""
+    """Start the APScheduler with all periodic jobs:
+      - Pipeline: every 6 hours (fetch, analyze, serve stories)
+      - Training data collection: every 2 days (AI review labels)
+      - ML model retrain: every 4 days (retrain on accumulated labels)
+
+    Staggered so data is collected before retrain uses it.
+    """
     if _scheduler.get_jobs():
         return
 
+    # Main pipeline — every 6 hours
     _scheduler.add_job(
         run_pipeline,
         "interval",
@@ -380,5 +563,31 @@ def start_scheduler():
         id="news_pipeline",
         replace_existing=True,
     )
+    logger.info("Scheduled: pipeline every 6 hours")
+
+    # Training data collection — every 2 days
+    # Offset by 2 hours from startup to let the first pipeline run finish
+    _scheduler.add_job(
+        collect_training_data,
+        "interval",
+        hours=48,
+        start_date=datetime.now(timezone.utc) + timedelta(hours=2),
+        id="collect_training_data",
+        replace_existing=True,
+    )
+    logger.info("Scheduled: training data collection every 2 days (first run in 2h)")
+
+    # ML retrain — every 4 days, 12h after collection
+    # (collection at day 0, retrain at day 0+12h — data is ready)
+    _scheduler.add_job(
+        retrain_ml_model,
+        "interval",
+        hours=96,
+        start_date=datetime.now(timezone.utc) + timedelta(hours=12),
+        id="retrain_ml_model",
+        replace_existing=True,
+    )
+    logger.info("Scheduled: ML model retrain every 4 days (first run in 12h)")
+
     _scheduler.start()
-    logger.info("Scheduler started — pipeline runs every 6 hours")
+    logger.info("Scheduler started with all 3 jobs")
