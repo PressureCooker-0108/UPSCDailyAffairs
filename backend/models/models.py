@@ -68,6 +68,7 @@ class Summary(Base):
     subtopics = Column(Text, nullable=True)         # JSON-serialized list of subtopics
     exam_playbook = Column(Text, nullable=True)     # JSON-serialized exam intelligence from OpenRouter/Owl Alpha
     ai_review = Column(Text, nullable=True)          # JSON-serialized AI review verdict (PASS/FLAG/REJECT)
+    ml_prediction = Column(Text, nullable=True)      # JSON-serialized ML prediction (verdict, confidence, probabilities)
 
 
 class StoryReview(Base):

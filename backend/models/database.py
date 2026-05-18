@@ -218,6 +218,7 @@ def save_stories(stories_data: list[dict], db: Session | None = None) -> None:
                 subtopics=json.dumps(s.get("subtopics", [])) if s.get("subtopics") else None,
                 exam_playbook=json.dumps(s.get("exam_playbook")) if s.get("exam_playbook") else None,
                 ai_review=json.dumps(s.get("ai_review")) if s.get("ai_review") else None,
+                ml_prediction=json.dumps(s.get("ml_prediction")) if s.get("ml_prediction") else None,
             )
             db.add(new_story)
         if own_session:
@@ -278,6 +279,7 @@ def get_top_stories(limit: int = 10) -> list[dict]:
                 "subtopics": json.loads(s.subtopics) if s.subtopics else [],
                 "exam_playbook": upsc_playbook,
                 "ai_review": json.loads(s.ai_review) if s.ai_review else None,
+                "ml_prediction": json.loads(s.ml_prediction) if s.ml_prediction else None,
             })
         return results
     finally:
@@ -348,6 +350,7 @@ def get_upsc_stories(limit: int = 50, min_relevance: float = 0.0) -> list[dict]:
                 "subtopics": json.loads(s.subtopics) if s.subtopics else [],
                 "exam_playbook": upsc_playbook,
                 "ai_review": json.loads(s.ai_review) if s.ai_review else None,
+                "ml_prediction": json.loads(s.ml_prediction) if s.ml_prediction else None,
             })
         return results
     finally:

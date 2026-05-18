@@ -9,16 +9,18 @@ Outputs a JSONL file where each line is one article with:
   - Raw article fields (title, source, text)
   - TF-IDF syllabus features (relevance_score, gs_paper, subtopics, etc.)
   - AI review verdict (verdict, confidence, reasoning)
+  - ML prediction (if available from pipeline runs)
 
 This data can be used to train an ML classifier that replaces or
 augments the AI review step — making it free and instant.
 
 Usage:
-  python generate_training_data.py                    # Default: 200+ articles
-  python generate_training_data.py --max-articles 500  # Fetch up to 500
+  python generate_training_data.py                          # Fresh RSS fetch + AI reviews
+  python generate_training_data.py --from-db                # Use saved stories from DB (includes ML predictions)
+  python generate_training_data.py --max-articles 500       # Fetch up to 500
   python generate_training_data.py --output train.jsonl
-  python generate_training_data.py --skip-ai           # TF-IDF only, no AI calls
-  python generate_training_data.py --no-fetch          # Use existing DB articles only
+  python generate_training_data.py --skip-ai                # TF-IDF only, no AI calls
+  python generate_training_data.py --no-fetch               # Use raw articles from DB (no ML predictions)
 """
 
 import argparse
@@ -285,6 +287,63 @@ def fetch_from_db() -> list[dict]:
         db.close()
 
 
+def fetch_from_db_with_ml() -> list[dict]:
+    """Pull saved stories from the Summary table with ML predictions + AI reviews.
+
+    These are stories that went through the pipeline's full processing:
+      - TF-IDF relevance scoring
+      - AI review verdict (PASS/REJECT)
+      - ML prediction (silent, collected alongside AI review)
+      - Summary, playbook, etc.
+
+    Each story becomes a training data entry with both ML prediction and AI
+    ground truth — perfect for retraining the model on real pipeline data.
+    """
+    from models.database import get_upsc_stories
+
+    stories = get_upsc_stories(limit=500, min_relevance=0.0)
+    logger.info(f"Loaded {len(stories)} stories from DB (with ML + AI data)")
+
+    results = []
+    for s in stories:
+        # Build TF-IDF-like features from the story's saved UPSC data
+        tfidf_features = {
+            "relevance_score": s.get("relevance_score", 0.0),
+            "gs_paper": s.get("gs_paper", "Unknown"),
+            "subtopics": s.get("subtopics", []),
+            "confidence": s.get("priority_score", 0.0),
+            "matched_criteria_count": 0,
+            "is_relevant": (s.get("relevance_score", 0) or 0) >= 0.30,
+            "is_irrelevant_content": False,
+        }
+
+        ai_review = s.get("ai_review")
+
+        entry = {
+            "title": s.get("title", ""),
+            "url": s.get("url", ""),
+            "source": (s.get("source", "") or "").split(",")[0] if s.get("source") else "",
+            "source_type": s.get("source_type", "news"),
+            "authority_score": s.get("authority_score", 0.5),
+            "text": (s.get("summary", "") or "")[:1000],
+            "published_at": s.get("published_at", ""),
+            "tfidf_features": tfidf_features,
+            "ai_review": ai_review,
+            "ml_prediction": s.get("ml_prediction"),
+            "review_generated_at": s.get("created_at"),
+            "source_db": "pipeline_stories",
+        }
+        results.append(entry)
+
+    with_ml = sum(1 for r in results if r.get("ml_prediction"))
+    with_ai = sum(1 for r in results if r.get("ai_review"))
+    logger.info(
+        f"DB stories: {len(results)} total, {with_ml} with ML predictions, "
+        f"{with_ai} with AI reviews"
+    )
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate AI review training data from RSS feeds",
@@ -315,6 +374,10 @@ Examples:
         help="Skip RSS fetching — use existing articles from database instead"
     )
     parser.add_argument(
+        "--from-db", action="store_true",
+        help="Load stories from Summary table (includes ML predictions + AI reviews from pipeline)"
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable debug logging"
     )
@@ -330,7 +393,10 @@ Examples:
     logger.info(f"Args: {vars(args)}")
 
     # Step 1: Fetch articles
-    if args.no_fetch:
+    if args.from_db:
+        logger.info("Step 1: Loading stories from Summary table (with ML predictions + AI reviews)...")
+        articles = fetch_from_db_with_ml()
+    elif args.no_fetch:
         logger.info("Step 1: Loading articles from database...")
         articles = fetch_from_db()
     else:
