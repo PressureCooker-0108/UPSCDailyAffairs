@@ -109,12 +109,19 @@ def _build_class_text(text: str, title: str = "") -> str:
 def _verdict_from_probabilities(probs: dict[str, float]) -> tuple[str, float, dict[str, float]]:
     """Convert model probabilities to a verdict with confidence.
 
-    Uses a dynamic confidence threshold (_CONFIDENCE_THRESHOLD module var):
+    Handles both binary (PASS/REJECT) and 3-class (PASS/FLAG/REJECT) models:
+
+    **Binary** (model has 2 classes, e.g. [PASS, REJECT]):
+      - Uses PASS probability directly against the threshold
+      - PASS prob >= threshold → PASS, else → REJECT
+      - No FLAG class — articles are either shown or filtered
+
+    **3-class** (model has 3 classes, e.g. [FLAG, PASS, REJECT]):
       - If top class probability >= threshold → return that class
-      - Otherwise → return "FLAG" (unsure)
+      - Otherwise → return "FLAG" (unsure, let AI review decide)
 
     The threshold can be updated at runtime via set_confidence_threshold().
-    This is auto-tuned by the ml_auto_retrain system based on model accuracy.
+    Auto-tuned by the ml_auto_retrain system based on model accuracy.
 
     Args:
         probs: Dict mapping class labels to probabilities (must sum to 1.0)
@@ -123,21 +130,31 @@ def _verdict_from_probabilities(probs: dict[str, float]) -> tuple[str, float, di
         (verdict, confidence, probabilities)
     """
     if not probs:
-        return "FLAG", 0.0, {}
+        return "REJECT", 0.0, {}
 
     # Normalize (should already be normalized from predict_proba)
     total = sum(probs.values())
     if total > 0 and total != 1.0:
         probs = {k: v / total for k, v in probs.items()}
 
-    best_class = max(probs, key=probs.get)
-    best_prob = probs[best_class]
+    # Detect binary vs 3-class from model output
+    is_binary = len(probs) == 2 and "PASS" in probs and "REJECT" in probs
 
-    # Low confidence → return FLAG (let AI review decide)
-    if best_prob < _CONFIDENCE_THRESHOLD:
-        return "FLAG", best_prob, probs
-
-    return best_class, best_prob, probs
+    if is_binary:
+        # Binary: PASS probability against threshold
+        pass_prob = probs.get("PASS", 0.0)
+        reject_prob = probs.get("REJECT", 1.0)
+        if pass_prob >= _CONFIDENCE_THRESHOLD:
+            return "PASS", pass_prob, probs
+        # Confidence on REJECT = actual REJECT probability, not inverted
+        return "REJECT", reject_prob, probs
+    else:
+        # 3-class: top class against threshold
+        best_class = max(probs, key=probs.get)
+        best_prob = probs[best_class]
+        if best_prob < _CONFIDENCE_THRESHOLD:
+            return "FLAG", best_prob, probs
+        return best_class, best_prob, probs
 
 
 def ml_review_verdict(

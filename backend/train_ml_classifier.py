@@ -140,8 +140,15 @@ def load_upsc_stories_from_prod() -> list[dict]:
 def prepare_dataset(
     records: list[dict],
     min_samples_per_class: int = 2,
+    binary: bool = True,
 ) -> tuple[list[str], list[str], dict[str, int]]:
     """Extract texts and labels from training records.
+
+    Args:
+        records: Training records with text + ai_review
+        min_samples_per_class: Warn if any class has fewer samples
+        binary: If True, collapse FLAG → PASS (binary PASS vs REJECT).
+                FLAG is inherently ambiguous — binary is more reliable.
 
     Returns:
         (texts, labels, class_counts)
@@ -163,6 +170,12 @@ def prepare_dataset(
 
         verdict = ai_review.get("verdict", "")
         if verdict not in ("PASS", "FLAG", "REJECT"):
+            continue
+
+        # Collapse FLAG → PASS for binary classification
+        if binary and verdict == "FLAG":
+            verdict = "PASS"
+        elif not binary and verdict not in ("PASS", "FLAG", "REJECT"):
             continue
 
         texts.append(text[:2000])  # Keep manageable
@@ -382,6 +395,10 @@ Examples:
         help="Run train/test split evaluation and print metrics"
     )
     parser.add_argument(
+        "--multi-class", action="store_true",
+        help="Train 3-class model (PASS/FLAG/REJECT) instead of binary (PASS vs REJECT)"
+    )
+    parser.add_argument(
         "--verbose", "-v", action="store_true",
         help="Enable debug logging"
     )
@@ -428,8 +445,8 @@ Examples:
         logger.error("No training records loaded. Cannot train.")
         sys.exit(1)
 
-    # Step 2: Prepare dataset
-    texts, labels, class_counts = prepare_dataset(records)
+    # Step 2: Prepare dataset (binary by default — FLAG collapsed → PASS)
+    texts, labels, class_counts = prepare_dataset(records, binary=not args.multi_class)
     if len(texts) < 5:
         logger.error(
             f"Only {len(texts)} labeled samples. Need at least 5 for a meaningful model. "

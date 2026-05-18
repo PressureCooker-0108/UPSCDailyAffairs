@@ -1,7 +1,6 @@
 {
   "model_path": "C:\\Users\\Adity\\OneDrive\\Desktop\\Projects\\UPSCDailyAffairs\\backend\\ml_models\\ml_model.joblib",
   "classes": [
-    "FLAG",
     "PASS",
     "REJECT"
   ],
@@ -10,21 +9,21 @@
     "10",
     "12",
     "16",
+    "16 biennial",
+    "16 seats",
     "17",
     "18",
+    "18 result",
+    "2020",
+    "2020 narco",
     "2026",
+    "2026 indian",
     "22",
     "22 election",
-    "30",
     "43",
     "43 years",
     "45",
-    "50",
-    "abroad",
     "access",
-    "accident",
-    "accident near",
-    "according",
     "accused"
   ]
 }

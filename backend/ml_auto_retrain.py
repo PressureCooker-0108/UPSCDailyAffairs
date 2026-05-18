@@ -437,8 +437,8 @@ def auto_retrain(
             _FEEDBACK_BUFFER.clear()
             logger.info(f"[ML Auto-Retrain] Added {fb_count} feedback samples")
 
-        # 4. Prepare dataset
-        texts, labels, class_counts = prepare_dataset(records)
+        # 4. Prepare dataset (binary by default — FLAG collapsed → PASS)
+        texts, labels, class_counts = prepare_dataset(records, binary=True)
 
         if len(texts) < 10:
             logger.warning(
