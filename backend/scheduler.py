@@ -53,6 +53,7 @@ _training_data_status: dict = {
     "last_run_duration": None,
     "last_run_success": None,
     "total_collections": 0,
+    "last_user_review_count": 0,
 }
 
 _retrain_status: dict = {
@@ -421,6 +422,7 @@ def collect_training_data() -> None:
         # Step 1b: Read user reviews from DB (human ground truth)
         user_reviews = fetch_user_reviews()
         logger.info(f"[Train-Data] Loaded {len(user_reviews)} user reviews from DB")
+        _training_data_status["last_user_review_count"] = len(user_reviews)
         with_verdict = sum(1 for r in user_reviews if r.get("ai_review"))
         logger.info(f"[Train-Data] {with_verdict} user reviews with PASS/REJECT signal")
 
