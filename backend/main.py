@@ -17,7 +17,12 @@ from models.database import (
 )
 from fastapi.responses import FileResponse
 
-from scheduler import run_pipeline, start_scheduler
+from scheduler import (
+    run_pipeline, start_scheduler,
+    get_pipeline_status,
+    get_training_data_status,
+    get_retrain_status,
+)
 from upsc_analyzer import get_ai_runtime_status, probe_openrouter
 from ml_auto_retrain import get_retrain_state, auto_retrain as ml_auto_retrain
 
@@ -361,6 +366,17 @@ def db_status():
         return {"error": str(e)}
 
 
+# ── Pipeline Status ──
+
+@app.get("/pipeline/status")
+def pipeline_status():
+    """Current pipeline status: is it running, last run timing, totals."""
+    try:
+        return get_pipeline_status()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ── Training Data Generation ──
 
 _TRAINING_DATA_RUNNING = False
@@ -476,6 +492,26 @@ async def download_training_data():
         media_type="application/x-ndjson",
         headers={"Content-Disposition": "attachment; filename=training_data.jsonl"},
     )
+
+
+# ── Scheduled Job Status ──
+
+@app.get("/train-data/scheduler-status")
+def train_data_scheduler_status():
+    """Status of the scheduled 2-day training data collection job."""
+    try:
+        return get_training_data_status()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/ml/retrain-scheduler-status")
+def retrain_scheduler_status():
+    """Status of the scheduled 4-day ML retrain job."""
+    try:
+        return get_retrain_status()
+    except Exception as e:
+        return {"error": str(e)}
 
 
 # ── ML Continuous Improvement ──
