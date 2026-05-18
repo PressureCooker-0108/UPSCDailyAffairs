@@ -407,31 +407,41 @@ def collect_training_data() -> None:
     logger.info("=== Training Data Collection (scheduled every 2 days) ===")
 
     try:
-        from generate_training_data import fetch_from_db_with_ml, save_training_data
+        from generate_training_data import (
+            fetch_from_db_with_ml, fetch_user_reviews, save_training_data
+        )
 
-        # Step 1: Read saved stories from DB (ML predictions + AI reviews)
+        # Step 1a: Read pipeline-saved stories from DB (ML predictions + AI reviews)
         stories = fetch_from_db_with_ml()
-        logger.info(f"[Train-Data] Loaded {len(stories)} stories from DB")
-
+        logger.info(f"[Train-Data] Loaded {len(stories)} pipeline stories from DB")
         with_ml = sum(1 for s in stories if s.get("ml_prediction"))
         with_ai = sum(1 for s in stories if s.get("ai_review"))
         logger.info(f"[Train-Data] {with_ml} with ML predictions, {with_ai} with AI reviews")
 
-        if not stories:
-            logger.warning("[Train-Data] No stories found in DB — skipping")
+        # Step 1b: Read user reviews from DB (human ground truth)
+        user_reviews = fetch_user_reviews()
+        logger.info(f"[Train-Data] Loaded {len(user_reviews)} user reviews from DB")
+        with_verdict = sum(1 for r in user_reviews if r.get("ai_review"))
+        logger.info(f"[Train-Data] {with_verdict} user reviews with PASS/REJECT signal")
+
+        # Combine both sources into one dataset
+        all_data = stories + user_reviews
+
+        if not all_data:
+            logger.warning("[Train-Data] No data found in DB — skipping")
             _training_data_status["last_run_success"] = False
             return
 
-        # Step 2: Save to a dated file + update latest
+        # Step 2: Save combined data to a dated file + update latest
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         dated_path = f"/tmp/training_data_{today}.jsonl"
-        save_training_data(stories, dated_path)
+        save_training_data(all_data, dated_path)
 
         latest_path = Path("/tmp/training_data.jsonl")
         if latest_path.exists():
             latest_path.unlink()
         shutil.copy2(dated_path, latest_path)
-        logger.info(f"[Train-Data] Updated /tmp/training_data.jsonl ({len(stories)} stories)")
+        logger.info(f"[Train-Data] Updated /tmp/training_data.jsonl ({len(all_data)} records: {len(stories)} pipeline + {len(user_reviews)} user reviews)")
 
         _training_data_status["last_run_success"] = True
         _training_data_status["total_collections"] += 1
