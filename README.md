@@ -18,7 +18,7 @@ This is not a general news dashboard. It's an **exam-intelligence tool** that an
 ```
 ┌─────────────┐     ┌──────────────────────┐     ┌──────────────┐
 │  40+ RSS    │ ──▶ │  Backend API         │ ──▶ │  Next.js     │
-│  Sources    │     │  FastAPI + PostgreSQL │     │  Frontend    │
+│  Sources    │     │  FastAPI + PostgreSQL│     │  Frontend    │
 │             │     │                      │     │  (Vercel)    │
 └─────────────┘     └──────────────────────┘     └──────────────┘
                           │
@@ -28,13 +28,13 @@ This is not a general news dashboard. It's an **exam-intelligence tool** that an
             │  Fetch → Clean → Cluster → Rank →   │
             │  ↓                                  │
             │  ┌─ Phase 0: ML Review (free)       │
-            │  ├─ Phase 1: AI Review (OpenRouter)  │
-            │  └─ Phase 2: Exam Playbook            │
-            │         + Market Data + Briefing      │
-            │                                      │
-            │  ┌─ Continuous Improvement Loop      │
-            │  │  Feedback → Auto-Retrain →        │
-            │  │  Threshold Tune → Active Learning │
+            │  ├─ Phase 1: AI Review (OpenRouter) │
+            │  └─ Phase 2: Exam Playbook          │
+            │         + Market Data + Briefing    │
+            │                                     │
+            │  ┌─ Continuous Improvement Loop     │
+            │  │  Feedback → Auto-Retrain →       │
+            │  │  Threshold Tune → Active Learnin │
             │  └──────────────────────────────────│
             └─────────────────────────────────────┘
 ```
